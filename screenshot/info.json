@@ -1,0 +1,20 @@
+{
+  "author": [
+    "Akai"
+  ],
+  "name": "Screenshot",
+  "install_msg": "Thanks for installing.",
+  "description": "Capture screenshots of websites with customizable parameters.",
+  "short": "Capture screenshots of websites.",
+  "hidden": false,
+  "tags": [
+    "screenshot",
+    "web",
+    "thumbnail"
+  ],
+  "permissions": [
+    "embed_links"
+  ],
+  "end_user_data_statement": "This cog does not store any End User Data.",
+  "type": "COG"
+}
