@@ -1,0 +1,19 @@
+{
+  "author": [
+    "Akai"
+  ],
+  "name": "GuessTheNumber",
+  "install_msg": "Thanks for installing.",
+  "description": "Guess the Number cog for a fun guessing game with your server members.",
+  "short": "Guess the Number cog.",
+  "hidden": false,
+  "tags": [
+    "guess",
+    "game"
+  ],
+  "permissions": [
+    "embed_links"
+  ],
+  "end_user_data_statement": "This cog does not store any End User Data.",
+  "type": "COG"
+}

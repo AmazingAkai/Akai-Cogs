@@ -23,8 +23,9 @@ SOFTWARE.
 """
 
 from typing import Union
+
 import discord
-from redbot.core import commands, Config
+from redbot.core import Config, commands
 
 
 class Reach(commands.Cog):
@@ -41,6 +42,7 @@ class Reach(commands.Cog):
         self.config.register_global(**default_global)
 
     @commands.group(invoke_without_command=True)
+    @commands.guild_only()
     async def reach(
         self,
         ctx: commands.Context,
@@ -48,9 +50,12 @@ class Reach(commands.Cog):
         *roles: Union[discord.Role, str],
     ):
         """Shows the reach of roles in a channel"""
+        assert ctx.guild is not None
+
         if len(roles) == 0:
             await ctx.send("Please enter atleast one role to check reach of.")
             return
+
         arrow = await self.config.arrow()
         members = set()
         total_members = set()
