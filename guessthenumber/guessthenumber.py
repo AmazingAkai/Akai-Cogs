@@ -116,12 +116,12 @@ class GuessTheNumber(commands.Cog):
                 if hints:
                     # fmt: off
                     with contextlib.suppress(discord.HTTPException):
-                        if guess > number:
-                            await guess_message.add_reaction("\N{DOWNWARDS BLACK ARROW}")
+                        if guess < number:
+                            await guess_message.add_reaction("\N{UPWARDS BLACK ARROW}")
                         elif guess == number:
                             await guess_message.add_reaction("\N{BALLOT BOX WITH CHECK}")
-                        elif guess < number:
-                            await guess_message.add_reaction("\N{UPWARDS BLACK ARROW}")
+                        elif guess > number:
+                            await guess_message.add_reaction("\N{DOWNWARDS BLACK ARROW}")
                     # fmt: on
 
         embed = discord.Embed(
