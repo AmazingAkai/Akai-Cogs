@@ -188,7 +188,7 @@ class Screenshot(commands.Cog):
 
                 nsfw_score = await self.detect_nsfw(image_bytes)
 
-                if not nsfw_score:
+                if nsfw_score is None:
                     return await ctx.send(
                         "Failed to detect the NSFW score of that image."
                     )

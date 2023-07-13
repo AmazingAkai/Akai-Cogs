@@ -23,6 +23,7 @@ SOFTWARE.
 """
 
 from typing import Optional
+
 import discord
 from redbot.core import commands
 
@@ -35,12 +36,11 @@ class Device(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
+    @commands.hybrid_command()
     async def device(
-        self, ctx: commands.Context, user: Optional[discord.Member] = None
+        self, ctx: commands.Context, user: discord.Member = commands.Author
     ) -> None:
         """Displays the device user is using."""
-        user = user if user else ctx.author
         if user.bot:
             await ctx.send(
                 embed=discord.Embed(

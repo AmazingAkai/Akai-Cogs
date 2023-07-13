@@ -41,7 +41,7 @@ class Reach(commands.Cog):
         }
         self.config.register_global(**default_global)
 
-    @commands.group(invoke_without_command=True)
+    @commands.hybrid_group(invoke_without_command=True)
     @commands.guild_only()
     async def reach(
         self,
