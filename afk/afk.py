@@ -149,7 +149,7 @@ class AwayFromKeyboard(commands.Cog):
                         mentions.append(new_mention)
 
     @commands.guild_only()
-    @commands.command(aliases=["away", "touchgrass"])
+    @commands.hybrid_command(aliases=["away", "touchgrass"])
     @commands.cooldown(1, 5.0, commands.BucketType.member)
     async def afk(self, ctx: commands.Context, *, message: Optional[str] = None):
         """Make the bot send a message whenever you are away from the keyboard."""
@@ -180,8 +180,8 @@ class AwayFromKeyboard(commands.Cog):
             await asyncio.sleep(5)
             self.grace_period.remove(ctx.author.id)
 
-    @commands.guild_only()  # type:ignore
-    @commands.group(aliases=["awayset"])
+    @commands.guild_only()
+    @commands.hybrid_group(aliases=["awayset"])
     @commands.has_permissions(manage_guild=True)
     async def afkset(self, ctx: commands.Context) -> None:
         """Set and manage afk command."""
