@@ -63,7 +63,7 @@ class GuessTheNumber(commands.Cog):
         lower_limit: int = 0,
         higher_limit: int = 100,
         hints: bool = False,
-        dm_number: bool = False,
+        dm_number: bool = True,
     ):
         """Starts a "Guess the Number" game in the current channel."""
         if lower_limit >= higher_limit:
