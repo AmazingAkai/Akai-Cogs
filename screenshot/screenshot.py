@@ -62,14 +62,38 @@ class Screenshot(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
+        self.key: Optional[str] = None
+
+    async def cog_load(self):
+        rapid_api = await self.bot.get_shared_api_tokens("rapid_api")
+        rapid_api_key = rapid_api.get("api_key")
+        if rapid_api_key is not None:
+            self.key = rapid_api_key
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         """Thanks Sinbad!"""
         pre_processed = super().format_help_for_context(ctx)
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
-    @commands.hybrid_command(name="screenshot", aliases=["ss"], nsfw=True)
-    @commands.is_nsfw()
+    async def detect_nsfw(self, image_bytes: bytes) -> Optional[int]:
+        if not self.key:
+            return 0
+        url = "https://nsfw1.p.rapidapi.com/nsfw"
+        headers = {
+            "X-RapidAPI-Key": self.key,
+            "X-RapidAPI-Host": "nsfw1.p.rapidapi.com",
+        }
+
+        payload = aiohttp.FormData()
+        payload.add_field("image", image_bytes, content_type="multipart/form-data")
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=payload) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result["response"]["nsfw"]
+
+    @commands.hybrid_command(name="screenshot", aliases=["ss"])
     @app_commands.describe(
         site="The URL of the website to take a screenshot of.",
         width="Thumbnail width in pixels. Default: 600.",
@@ -105,7 +129,7 @@ class Screenshot(commands.Cog):
         iphone6plus: bool = False,
         iphoneX: bool = False,
         galaxys5: bool = False,
-    ) -> None:
+    ):
         """
         Capture a screenshot of a website.
 
@@ -162,11 +186,25 @@ class Screenshot(commands.Cog):
                     async with session.get(url) as response:
                         image_bytes = await response.read()
 
-                file = discord.File(fp=BytesIO(image_bytes), filename="screenshot.png")
-                embed = discord.Embed(
-                    title=site, url=site, colour=await ctx.bot.get_embed_color(ctx)
-                )
-                embed.set_image(url="attachment://screenshot.png")
-                await ctx.send(file=file, embed=embed)
+                nsfw_score = await self.detect_nsfw(image_bytes)
+
+                if not nsfw_score:
+                    return await ctx.send(
+                        "Failed to detect the NSFW score of that image."
+                    )
+
+                if nsfw_score > 0.5:
+                    await ctx.send(
+                        "NSFW content detected. The screenshot cannot be displayed."
+                    )
+                else:
+                    file = discord.File(
+                        fp=BytesIO(image_bytes), filename="screenshot.png"
+                    )
+                    embed = discord.Embed(
+                        title=site, url=site, colour=await ctx.bot.get_embed_color(ctx)
+                    )
+                    embed.set_image(url="attachment://screenshot.png")
+                    await ctx.send(file=file, embed=embed)
         else:
             await ctx.send("Invalid URL. Please provide a valid URL.")

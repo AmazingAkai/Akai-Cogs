@@ -3,7 +3,7 @@
     "Akai"
   ],
   "name": "Screenshot",
-  "install_msg": "Thanks for installing.",
+  "install_msg": "Thanks for installing. To enable NSFW detection, Get an API key for this [API](https://rapidapi.com/qaix/api/nsfw1/details) and use `[p] set api rapid_api api_key <value>`.",
   "description": "Capture screenshots of websites with customizable parameters.",
   "short": "Capture screenshots of websites.",
   "hidden": false,
