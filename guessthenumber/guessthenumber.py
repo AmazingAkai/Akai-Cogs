@@ -32,8 +32,16 @@ from redbot.core.bot import Red
 
 
 class GuessTheNumber(commands.Cog):
+    __version__ = "0.0.1"
+    __author__ = "Akai"
+
     def __init__(self, bot: Red):
         self.bot = bot
+
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     @commands.hybrid_command(name="guessthenumber", aliases=["gtn", "guess_the_number"])
     @commands.max_concurrency(1, per=commands.BucketType.channel)
