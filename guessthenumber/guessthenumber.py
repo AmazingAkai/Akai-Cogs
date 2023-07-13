@@ -81,7 +81,11 @@ class GuessTheNumber(commands.Cog):
         num_guesses = 0
 
         def check(message: discord.Message):
-            return ctx.channel == message.channel and not message.author.bot
+            return (
+                ctx.channel == message.channel
+                and not message.author.bot
+                and message.content.isdigit()
+            )
 
         players: Set[Union[discord.Member, discord.User]] = {ctx.author}
         last_player: Optional[Union[discord.Member, discord.User]] = None
