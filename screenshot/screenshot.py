@@ -108,7 +108,7 @@ class Screenshot(commands.Cog):
         iphone5="Emulate an iPhone 5.",
         iphone6="Emulate an iPhone 6.",
         iphone6plus="Emulate an iPhone 6 Plus.",
-        iphoneX="Emulate an iPhone X.",
+        iphone_x="Emulate an iPhone X.",
         galaxys5="Emulate a Galaxy S5.",
     )
     async def screenshot_command(
@@ -127,7 +127,7 @@ class Screenshot(commands.Cog):
         iphone5: bool = False,
         iphone6: bool = False,
         iphone6plus: bool = False,
-        iphoneX: bool = False,
+        iphone_x: bool = False,
         galaxys5: bool = False,
     ):
         """
@@ -147,7 +147,7 @@ class Screenshot(commands.Cog):
         - iphone5: Emulate an iPhone 5.
         - iphone6: Emulate an iPhone 6.
         - iphone6plus: Emulate an iPhone 6 Plus.
-        - iphoneX: Emulate an iPhone X.
+        - iphone_x: Emulate an iPhone X.
         - galaxys5: Emulate a Galaxy S5.
         """
         parsed_url = urlparse(site)
@@ -176,7 +176,7 @@ class Screenshot(commands.Cog):
                     url += "iphone6/"
                 if iphone6plus:
                     url += "iphone6plus/"
-                if iphoneX:
+                if iphone_x:
                     url += "iphoneX/"
                 if galaxys5:
                     url += "galaxys5/"
