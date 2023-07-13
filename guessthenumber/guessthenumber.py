@@ -120,7 +120,7 @@ class GuessTheNumber(commands.Cog):
                             await guess_message.add_reaction("\N{DOWNWARDS BLACK ARROW}")
                         elif guess == number:
                             await guess_message.add_reaction("\N{BALLOT BOX WITH CHECK}")
-                        else:
+                        elif guess < number:
                             await guess_message.add_reaction("\N{UPWARDS BLACK ARROW}")
                     # fmt: on
 
