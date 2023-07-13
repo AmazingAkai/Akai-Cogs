@@ -52,10 +52,10 @@ class GuessTheNumber(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
     @app_commands.describe(
-        lower_limit="The minimum value for the randomly chosen number.",
-        higher_limit="The maximum value for the randomly chosen number.",
-        hints="Indicates whether to provide hints with reactions for higher or lower guesses.",
-        dm_number="Specifies if the number should be sent to the host via direct message.",
+        lower_limit="The minimum value for the randomly chosen number. Defaults to 0.",
+        higher_limit="The maximum value for the randomly chosen number. Defaults to 100.",
+        hints="Indicates whether to provide hints with reactions for higher or lower guesses. Defaults to False.",
+        dm_number="Specifies if the number should be sent to the host via direct message. Defaults to True.",
     )
     async def guess_the_number(
         self,
@@ -73,7 +73,7 @@ class GuessTheNumber(commands.Cog):
 
         # Restrict the limits to a particular value
         lower_limit = max(lower_limit, 0)
-        higher_limit = min(higher_limit, 1000000)
+        higher_limit = min(higher_limit, 1_000_000_000)
 
         number = random.randint(lower_limit, higher_limit)
         guess = -1
