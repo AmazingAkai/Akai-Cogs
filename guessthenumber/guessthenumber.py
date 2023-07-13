@@ -43,7 +43,11 @@ class GuessTheNumber(commands.Cog):
         pre_processed = super().format_help_for_context(ctx)
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
-    @commands.hybrid_command(name="guessthenumber", aliases=["gtn", "guess_the_number"])
+    @commands.hybrid_command(
+        name="guessthenumber",
+        aliases=["gtn", "guess_the_number"],
+        cooldown_after_parsing=True,
+    )
     @commands.max_concurrency(1, per=commands.BucketType.channel)
     @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
@@ -56,8 +60,8 @@ class GuessTheNumber(commands.Cog):
     async def guess_the_number(
         self,
         ctx: commands.GuildContext,
-        lower_limit: int,
-        higher_limit: int,
+        lower_limit: int = 0,
+        higher_limit: int = 100,
         hints: bool = False,
         dm_number: bool = False,
     ):
