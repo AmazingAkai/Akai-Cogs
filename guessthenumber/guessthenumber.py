@@ -87,10 +87,13 @@ class GuessTheNumber(commands.Cog):
         last_player: Optional[Union[discord.Member, discord.User]] = None
 
         if dm_number:
-            try:
-                await ctx.author.send(f"The random number is `{number}`!")
-            except discord.HTTPException:
-                pass
+            if ctx.interaction:
+                await ctx.send(f"The random number is `{number}`!", ephemeral=True)
+            else:
+                try:
+                    await ctx.author.send(f"The random number is `{number}`!")
+                except discord.HTTPException:
+                    pass
 
         await ctx.send(
             f"Guess a number between `{lower_limit}` and `{higher_limit}`. Good Luck!"
