@@ -69,6 +69,7 @@ class Screenshot(commands.Cog):
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     @commands.hybrid_command(name="screenshot", aliases=["ss"], nsfw=True)
+    @commands.is_nsfw()
     @app_commands.describe(
         site="The URL of the website to take a screenshot of.",
         width="Thumbnail width in pixels. Default: 600.",
