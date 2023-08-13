@@ -154,10 +154,21 @@ class GameStreams(commands.Cog):
                 self.game_data_cache[game_name.lower()] = game
                 return game
 
-    @commands.command(name="findtwitchstreams")
+    @commands.group(name="gamestreams", aliases=["gs"])
     @commands.guild_only()
-    async def find_twitch_streams(
-        self, ctx: commands.GuildContext, game_name: str
+    async def gamestreams(self, ctx: commands.Context) -> None:
+        """Command to announce game streams and search them."""
+
+    @gamestreams.group(name="twitch")
+    @commands.guild_only()
+    async def gamestreams_twitch(self, ctx: commands.Context) -> None:
+        """Command to announce game streams and search them on twitch."""
+
+    @gamestreams_twitch.command(name="search")
+    @commands.guild_only()
+    @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
+    async def gamestreams_twitch_search(
+        self, ctx: commands.GuildContext, *, game_name: str
     ) -> None:
         if self.streams_cog is None:
             await ctx.send(
