@@ -61,6 +61,12 @@ class GameStreams(commands.Cog):
         await self.streams_cog.maybe_renew_twitch_bearer_token()
         token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
 
+        if token is None:
+            await ctx.send(
+                "The twitch Client ID is not set. Please read `;streamset twitchtoken`."
+            )
+            return
+
         headers = {
             "Client-ID": token,
             "Authorization": f"Bearer {self.streams_cog.ttv_bearer_cache.get('access_token', None)}",
