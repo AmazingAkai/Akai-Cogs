@@ -26,11 +26,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import aiohttp
 import discord
-from redbot.cogs.streams import streams
+from redbot.cogs.streams.streams import Streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
 from redbot.core import Config, commands
 from redbot.core.bot import Red
@@ -118,16 +118,20 @@ class Game:
                 wait_time = reset_time - current_time + 0.1
                 await asyncio.sleep(wait_time)
 
-    async def fetch_streams(self) -> List[Stream]:
+    async def fetch_streams(self, cursor: Optional[str] = None) -> List[Stream]:
         streams = []
 
         await self.wait_for_rate_limit_reset()
 
         async with aiohttp.ClientSession() as session:
+            params: Dict[str, Any] = {"game_id": self.id, "first": 100}
+            if cursor:
+                params["after"] = cursor
+
             async with session.get(
                 TWITCH_STREAMS_ENDPOINT,
                 headers=self.headers,
-                params={"game_id": self.id, "first": 100},
+                params=params,
             ) as response:
                 if response.status == 429:
                     reset = response.headers.get("Ratelimit-Reset")
@@ -135,7 +139,8 @@ class Game:
                         self._rate_limit_resets.add(int(reset))
                     await self.wait_for_rate_limit_reset()
 
-                    return await self.fetch_streams()
+                    # Retry the request with the same cursor
+                    return await self.fetch_streams(cursor=cursor)
 
                 if response.status != 200:
                     raise StreamFetchError(
@@ -147,13 +152,20 @@ class Game:
                     stream = Stream(stream_data)
                     streams.append(stream)
 
-        remaining = response.headers.get("Ratelimit-Remaining")
-        if remaining:
-            self._rate_limit_remaining = int(remaining)
+                # Check if there's more data to fetch
+                next_cursor = data.get("pagination", {}).get("cursor")
+                if next_cursor:
+                    # Recursively fetch more streams with the next cursor
+                    more_streams = await self.fetch_streams(cursor=next_cursor)
+                    streams.extend(more_streams)
 
-        reset = response.headers.get("Ratelimit-Reset")
-        if reset:
-            self._rate_limit_resets.add(int(reset))
+            remaining = response.headers.get("Ratelimit-Remaining")
+            if remaining:
+                self._rate_limit_remaining = int(remaining)
+
+            reset = response.headers.get("Ratelimit-Reset")
+            if reset:
+                self._rate_limit_resets.add(int(reset))
 
         return streams
 
@@ -168,33 +180,75 @@ class GameStreams(commands.Cog):
         self.bot = bot
 
         self.games: Dict[str, Optional[Game]] = {}
-        self.streams: Dict[Game, List[Stream]] = {}
 
         self.config = Config.get_conf(self, identifier=7474034061)
-        self.config.register_global(
-            alerts=[]
-        )  # List of Dict having game_name and alerts (List of dicts having channel_id, guild_id and ping_role_id)
+        self.config.register_global(alerts=[], last_checked=None)
 
     @property
-    def streams_cog(self) -> Optional[streams.Streams]:
+    def streams_cog(self) -> Optional[Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
-    async def check_streams(self):
-        if self.streams_cog is None:
-            return
-        await self.streams_cog.maybe_renew_twitch_bearer_token()
-        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
-        if token is None:
-            return
-        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
-        if access_token is None:
-            return
-        headers = {
-            "Client-ID": token,
-            "Authorization": f"Bearer {access_token}",
-        }
+    # async def check_streams(self):
+    #     if self.streams_cog is None:
+    #         return
+    #     await self.streams_cog.maybe_renew_twitch_bearer_token()
+    #     token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
+    #     if token is None:
+    #         return
+    #     access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+    #     if access_token is None:
+    #         return
+    #     headers = {
+    #         "Client-ID": token,
+    #         "Authorization": f"Bearer {access_token}",
+    #     }
 
-    async def fetch_game(self, game_name: str, headers: dict) -> Game:
+    #     game_alerts = await self.config.alerts()
+
+    #     for game_alert in game_alerts:
+    #         game_name = game_alert["game"]
+    #         game = await self.fetch_game(game_name, headers=headers)
+
+    #         alerts = game_alert["alerts"]
+
+    #         streams = await game.fetch_streams()
+    #         if game in self.streams:
+    #             new_streams = [
+    #                 stream for stream in streams if stream not in self.streams
+    #             ]
+    #             if new_streams:
+    #                 for stream in new_streams:
+    #                     for alert in alerts:
+    #                         guild = self.bot.get_guild(alert["guild_id"])
+    #                         if guild is None:
+    #                             continue
+    #                         channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
+    #                         if channel is None:
+    #                             continue
+
+    #                         ping_role = guild.get_role(alert["ping_role_id"])
+    #                         await self.announce_new_stream(
+    #                             stream,
+    #                             guild=guild,
+    #                             channel=channel,
+    #                             ping_role=ping_role,
+    #                         )
+    #             else:
+    #                 pass
+    #             self.streams[game] = streams
+    #         else:
+    #             self.streams[game] = streams
+
+    async def announce_new_stream(
+        self,
+        stream: Stream,
+        guild: discord.Guild,
+        channel: discord.TextChannel,
+        ping_role: Optional[discord.Role] = None,
+    ):
+        embed = stream.make_embed()
+
+    async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
             game = self.games[game_name.lower()]
             if game is not None:
@@ -219,7 +273,7 @@ class GameStreams(commands.Cog):
                     self.games[game_name.lower()] = None
                     raise GameNotFoundError("That game does not exist on Twitch.")
 
-                game = Game(games_data[0], headers)
+                game = Game(games_data[0], headers=headers)
                 self.games[game_name.lower()] = game
                 return game
 
@@ -233,7 +287,7 @@ class GameStreams(commands.Cog):
     async def gamestreams_twitch(self, ctx: commands.Context) -> None:
         """Command to announce game streams and search them on twitch."""
 
-    @gamestreams_twitch.command(name="search")
+    @gamestreams_twitch.command(name="search", cooldown_after_parsing=True)
     @commands.guild_only()
     @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
     async def gamestreams_twitch_search(
@@ -266,7 +320,7 @@ class GameStreams(commands.Cog):
         }
 
         try:
-            game = await self.fetch_game(game_name, headers)
+            game = await self.fetch_game(game_name, headers=headers)
         except Exception as error:
             await ctx.send(str(error))
             return
@@ -295,7 +349,7 @@ class GameStreams(commands.Cog):
 
         await pages.start(ctx)
 
-    @gamestreams_twitch.command(name="alert")
+    @gamestreams_twitch.command(name="alert", cooldown_after_parsing=True)
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
@@ -340,7 +394,7 @@ class GameStreams(commands.Cog):
         }
 
         try:
-            game = await self.fetch_game(game_name, headers)
+            game = await self.fetch_game(game_name, headers=headers)
         except Exception as error:
             await ctx.send(str(error))
             return
