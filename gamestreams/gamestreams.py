@@ -23,7 +23,7 @@ SOFTWARE.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import aiohttp
 import discord
@@ -119,12 +119,18 @@ class GameStreams(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
+        self.game_data_cache: Dict[str, Game] = {}
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
     async def fetch_game(self, game_name: str, headers: dict) -> Game:
+        game = self.game_data_cache.get(game_name.lower())
+
+        if game is not None:
+            return game
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 TWITCH_GAMES_ENDPOINT,
@@ -141,7 +147,9 @@ class GameStreams(commands.Cog):
                 if not games_data:
                     raise GameNotFoundError("That game does not exist on Twitch.")
 
-                return Game(games_data[0], headers)
+                game = Game(games_data[0], headers)
+                self.game_data_cache[game_name.lower()] = game
+                return game
 
     @commands.command(name="findtwitchstreams")
     @commands.guild_only()
@@ -199,6 +207,6 @@ class GameStreams(commands.Cog):
             )
             embeds.append(embed)
 
-        pages = SimpleMenu(embeds, disable_after_timeout=True)
+        pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
 
         await pages.start(ctx)
