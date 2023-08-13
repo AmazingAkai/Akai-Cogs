@@ -119,17 +119,19 @@ class GameStreams(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
-        self.game_data_cache: Dict[str, Game] = {}
+        self.game_data_cache: Dict[str, Optional[Game]] = {}
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
     async def fetch_game(self, game_name: str, headers: dict) -> Game:
-        game = self.game_data_cache.get(game_name.lower())
+        if game_name.lower() in self.game_data_cache:
+            game = self.game_data_cache[game_name.lower()]
+            if game is not None:
+                return game
 
-        if game is not None:
-            return game
+            raise GameNotFoundError("That game does not exist on Twitch.")
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -138,6 +140,7 @@ class GameStreams(commands.Cog):
                 params={"name": game_name, "first": 1},
             ) as response:
                 if response.status == 401:
+                    self.game_data_cache[game_name.lower()] = None
                     raise FetchError(
                         "Failed to fetch that game, make sure to set proper credentials. Check `[p]streamset twitchtoken` for more info."
                     )
