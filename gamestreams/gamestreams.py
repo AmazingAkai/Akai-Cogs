@@ -23,6 +23,8 @@ SOFTWARE.
 """
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Dict, List, Optional
 
 import aiohttp
@@ -78,19 +80,27 @@ class Game:
     def __init__(self, data: dict, headers: dict) -> None:
         self.data = data
         self.headers = headers
-
-    def make_embed(self) -> discord.Embed:
-        embed = discord.Embed(
-            title=self.data["name"],
-            description=self.data["summary"],
-            url=f"https://www.twitch.tv/directory/game/{self.data['name']}",
-            color=discord.Color.purple(),
+        self._rate_limit_resets = set()
+        self._rate_limit_remaining = (
+            800  # Assuming an initial limit of 800 requests per minute
         )
-        embed.set_thumbnail(url=self.data["box_art_url"].format(width=285, height=380))
-        return embed
+
+    async def wait_for_rate_limit_reset(self) -> None:
+        current_time = int(time.time())
+        self._rate_limit_resets = {
+            x for x in self._rate_limit_resets if x > current_time
+        }
+
+        if self._rate_limit_remaining == 0:
+            if self._rate_limit_resets:
+                reset_time = next(iter(self._rate_limit_resets))
+                wait_time = reset_time - current_time + 0.1
+                await asyncio.sleep(wait_time)
 
     async def fetch_streams(self) -> List[Stream]:
         streams = []
+
+        await self.wait_for_rate_limit_reset()  # Wait for rate limit reset if necessary
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -98,6 +108,14 @@ class Game:
                 headers=self.headers,
                 params={"game_id": self.data["id"], "first": 100},
             ) as response:
+                if response.status == 429:
+                    reset = response.headers.get("Ratelimit-Reset")
+                    if reset:
+                        self._rate_limit_resets.add(int(reset))
+                    await self.wait_for_rate_limit_reset()
+
+                    return await self.fetch_streams()
+
                 if response.status != 200:
                     raise StreamFetchError(
                         f"Error {response.status} was raised while fetching streams."
@@ -107,6 +125,14 @@ class Game:
                 for stream_data in data.get("data", []):
                     stream = Stream(stream_data)
                     streams.append(stream)
+
+        remaining = response.headers.get("Ratelimit-Remaining")
+        if remaining:
+            self._rate_limit_remaining = int(remaining)
+
+        reset = response.headers.get("Ratelimit-Reset")
+        if reset:
+            self._rate_limit_resets.add(int(reset))
 
         return streams
 
