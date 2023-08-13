@@ -170,7 +170,6 @@ class GameStreams(commands.Cog):
                 params={"name": game_name, "first": 1},
             ) as response:
                 if response.status == 401:
-                    self.game_data_cache[game_name.lower()] = None
                     raise FetchError(
                         "Failed to fetch that game, make sure to set proper credentials. Check `[p]streamset twitchtoken` for more info."
                     )
@@ -178,6 +177,7 @@ class GameStreams(commands.Cog):
                 data = await response.json()
                 games_data = data["data"]
                 if not games_data:
+                    self.game_data_cache[game_name.lower()] = None
                     raise GameNotFoundError("That game does not exist on Twitch.")
 
                 game = Game(games_data[0], headers)
