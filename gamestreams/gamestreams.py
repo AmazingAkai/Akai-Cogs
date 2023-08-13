@@ -89,7 +89,7 @@ class GameStreams(commands.Cog):
                     else:
                         await ctx.send("Failed to fetch the game.")
                     return
-                game_id = data[0]["id"]
+                game_id = data["data"][0]["id"]
 
             async with session.get(
                 TWITCH_STREAMS_ENDPOINT,
