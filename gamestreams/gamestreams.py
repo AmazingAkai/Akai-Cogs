@@ -94,7 +94,7 @@ class GameStreams(commands.Cog):
             async with session.get(
                 TWITCH_STREAMS_ENDPOINT,
                 headers=headers,
-                params={"game_id": game_id, "first": 10},
+                params={"game_id": game_id, "first": 2},
             ) as response:
                 if response.status != 200:
                     await ctx.send(
