@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,10 +66,13 @@ class Stream:
         embed.add_field(
             name="Viewer Count",
             value=f"{self.data['viewer_count']} viewers",
-            inline=True,
+            inline=False,
         )
-        embed.add_field(name="Language", value=self.data["language"], inline=True)
-        embed.add_field(name="Started At", value=self.data["started_at"], inline=True)
+        embed.add_field(name="Language", value=self.data["language"], inline=False)
+        embed.add_field(name="Started At", value=self.data["started_at"], inline=False)
+        embed.add_field(
+            name="Is Adult Stream?", value=self.data["is_mature"], inline=False
+        )
         if self.data["tags"]:
             embed.add_field(
                 name="Tags", value=", ".join(self.data["tags"]), inline=False
@@ -100,7 +104,7 @@ class Game:
     async def fetch_streams(self) -> List[Stream]:
         streams = []
 
-        await self.wait_for_rate_limit_reset()  # Wait for rate limit reset if necessary
+        await self.wait_for_rate_limit_reset()
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
