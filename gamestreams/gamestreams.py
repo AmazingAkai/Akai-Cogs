@@ -154,7 +154,7 @@ class GameStreams(commands.Cog):
                 self.game_data_cache[game_name.lower()] = game
                 return game
 
-    @commands.group(name="gamestreams", aliases=["gs"])
+    @commands.group(name="gamestreams", aliases=["gs", "gamestream"])
     @commands.guild_only()
     async def gamestreams(self, ctx: commands.Context) -> None:
         """Command to announce game streams and search them."""
@@ -170,6 +170,7 @@ class GameStreams(commands.Cog):
     async def gamestreams_twitch_search(
         self, ctx: commands.GuildContext, *, game_name: str
     ) -> None:
+        """Search ongoing streams for a game on Twitch."""
         if self.streams_cog is None:
             await ctx.send(
                 f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
