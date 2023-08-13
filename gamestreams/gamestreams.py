@@ -31,6 +31,7 @@ from redbot.cogs.streams import streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
 from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.utils.views import SimpleMenu
 
 TWITCH_GAMES_ENDPOINT = TWITCH_BASE_URL + "/helix/games"
 
@@ -118,7 +119,6 @@ class GameStreams(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
-        self.session = aiohttp.ClientSession
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
@@ -131,19 +131,17 @@ class GameStreams(commands.Cog):
                 headers=headers,
                 params={"name": game_name, "first": 1},
             ) as response:
-                if response.status != 200:
-                    if response.status == 404:
-                        raise GameNotFoundError("That game doesn't exist on Twitch.")
-                    else:
-                        raise FetchError("Failed to fetch the game.")
+                if response.status == 401:
+                    raise FetchError(
+                        "Failed to fetch that game, make sure to set proper credentials. Check `[p]streamset twitchtoken` for more info."
+                    )
 
                 data = await response.json()
                 games_data = data["data"]
                 if not games_data:
-                    raise GameNotFoundError("That game doesn't exist on Twitch.")
-                game_data = games_data[0]
-                game = Game(game_data, headers)
-                return game
+                    raise GameNotFoundError("That game does not exist on Twitch.")
+
+                return Game(games_data[0], headers)
 
     @commands.command(name="findtwitchstreams")
     async def find_twitch_streams(self, ctx: commands.Context, game_name: str) -> None:
@@ -174,17 +172,14 @@ class GameStreams(commands.Cog):
 
         try:
             game = await self.fetch_game(game_name, headers)
-        except GameNotFoundError as e:
-            await ctx.send(str(e))
-            return
-        except FetchError:
-            await ctx.send("Failed to fetch game information.")
+        except Exception as error:
+            await ctx.send(str(error))
             return
 
         try:
             streams = await game.fetch_streams()
-        except StreamFetchError as e:
-            await ctx.send(str(e))
+        except StreamFetchError as error:
+            await ctx.send(str(error))
             return
 
         if not streams:
@@ -197,4 +192,6 @@ class GameStreams(commands.Cog):
             embed = stream.make_embed()
             embeds.append(embed)
 
-        await ctx.reply(embeds=embeds, mention_author=False)
+        pages = SimpleMenu(embeds, disable_after_timeout=True)
+
+        await pages.start(ctx)
