@@ -96,7 +96,7 @@ class Game:
             async with session.get(
                 TWITCH_STREAMS_ENDPOINT,
                 headers=self.headers,
-                params={"game_id": self.data["id"], "first": 10},
+                params={"game_id": self.data["id"], "first": 100},
             ) as response:
                 if response.status != 200:
                     raise StreamFetchError(
