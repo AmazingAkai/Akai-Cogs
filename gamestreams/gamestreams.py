@@ -27,7 +27,7 @@ from typing import Optional
 
 import aiohttp
 from redbot.cogs.streams import streams
-from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TwitchStream
+from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
 from redbot.core import commands
 from redbot.core.bot import Red
 
@@ -72,15 +72,36 @@ class GameStreams(commands.Cog):
             "Authorization": f"Bearer {self.streams_cog.ttv_bearer_cache.get('access_token', None)}",
         }
 
-        params = {
-            "name": game,
-            "first": 1,
-        }
-
         async with self.session() as session:
             async with session.get(
-                TWITCH_GAMES_ENDPOINT, headers=headers, params=params
+                TWITCH_GAMES_ENDPOINT,
+                headers=headers,
+                params={
+                    "name": game,
+                    "first": 1,
+                },
             ) as response:
+                data = await response.json()
+
+                if response.status != 200:
+                    if response.status == 404:
+                        await ctx.send("That game doesn't exist on twitch.")
+                    else:
+                        await ctx.send("Failed to fetch the game.")
+                    return
+                game_id = data[0]["id"]
+
+            async with session.get(
+                TWITCH_STREAMS_ENDPOINT,
+                headers=headers,
+                params={"game_id": game_id, "first": 10},
+            ) as response:
+                if response.status != 200:
+                    await ctx.send(
+                        f"Error {response.status} was raised while fetching streams."
+                    )
+                    return
+
                 data = await response.json()
 
                 await ctx.send(data)
