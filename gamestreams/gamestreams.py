@@ -63,7 +63,7 @@ class GameStreams(commands.Cog):
 
         headers = {
             "Client-ID": token,
-            "Authorization": f"Bearer {self.streams_cog.ttv_bearer_cache['access_token']}",
+            "Authorization": f"Bearer {self.streams_cog.ttv_bearer_cache.get('access_token', None)}",
         }
 
         params = {
