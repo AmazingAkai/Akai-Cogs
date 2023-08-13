@@ -23,15 +23,81 @@ SOFTWARE.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import aiohttp
+import discord
 from redbot.cogs.streams import streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
 from redbot.core import commands
 from redbot.core.bot import Red
 
 TWITCH_GAMES_ENDPOINT = TWITCH_BASE_URL + "/helix/games"
+
+
+class FetchError(Exception):
+    """Custom exception for fetching errors."""
+
+
+class GameNotFoundError(FetchError):
+    """Exception for game not found errors."""
+
+
+class StreamFetchError(FetchError):
+    """Exception for stream fetch errors."""
+
+
+class Stream:
+    def __init__(self, data: dict, headers: dict) -> None:
+        self.data = data
+        self.headers = headers
+
+    def make_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=self.data["title"],
+            description=self.data["user_name"],
+            url=f"https://twitch.tv/{self.data['user_name']}",
+        )
+        embed.set_thumbnail(
+            url=self.data["thumbnail_url"].format(width=320, height=180)
+        )
+        return embed
+
+
+class Game:
+    def __init__(self, data: dict, headers: dict) -> None:
+        self.data = data
+        self.headers = headers
+
+    def make_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=self.data["name"],
+            description=self.data["summary"],
+            url=f"https://www.twitch.tv/directory/game/{self.data['name']}",
+        )
+        embed.set_thumbnail(url=self.data["box_art_url"].format(width=285, height=380))
+        return embed
+
+    async def fetch_streams(self) -> List[Stream]:
+        streams = []
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                TWITCH_STREAMS_ENDPOINT,
+                headers=self.headers,
+                params={"game_id": self.data["id"], "first": 10},
+            ) as response:
+                if response.status != 200:
+                    raise StreamFetchError(
+                        f"Error {response.status} was raised while fetching streams."
+                    )
+
+                data = await response.json()
+                for stream_data in data.get("data", []):
+                    stream = Stream(stream_data, self.headers)
+                    streams.append(stream)
+
+        return streams
 
 
 class GameStreams(commands.Cog):
@@ -48,10 +114,26 @@ class GameStreams(commands.Cog):
     def streams_cog(self) -> Optional[streams.Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
-    @commands.command(name="findtwitchstreams")
-    async def find_twitch_streams(self, ctx: commands.Context, game: str) -> None:
-        """Find all the ongoing twitch streams of a specific game."""
+    async def fetch_game(self, game_name: str, headers: dict) -> Game:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                TWITCH_GAMES_ENDPOINT,
+                headers=headers,
+                params={"name": game_name, "first": 1},
+            ) as response:
+                if response.status != 200:
+                    if response.status == 404:
+                        raise GameNotFoundError("That game doesn't exist on Twitch.")
+                    else:
+                        raise FetchError("Failed to fetch the game.")
 
+                data = await response.json()
+                game_data = data["data"][0]
+                game = Game(game_data, headers)
+                return game
+
+    @commands.command(name="findtwitchstreams")
+    async def find_twitch_streams(self, ctx: commands.Context, game_name: str) -> None:
         if self.streams_cog is None:
             await ctx.send(
                 f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
@@ -63,45 +145,43 @@ class GameStreams(commands.Cog):
 
         if token is None:
             await ctx.send(
-                "The twitch Client ID is not set. Please read `;streamset twitchtoken`."
+                "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
             )
+            return
+
+        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+        if access_token is None:
+            await ctx.send("Failed to fetch the access token for Twitch API.")
             return
 
         headers = {
             "Client-ID": token,
-            "Authorization": f"Bearer {self.streams_cog.ttv_bearer_cache.get('access_token', None)}",
+            "Authorization": f"Bearer {access_token}",
         }
 
-        async with self.session() as session:
-            async with session.get(
-                TWITCH_GAMES_ENDPOINT,
-                headers=headers,
-                params={
-                    "name": game,
-                    "first": 1,
-                },
-            ) as response:
-                data = await response.json()
+        try:
+            game = await self.fetch_game(game_name, headers)
+        except GameNotFoundError as e:
+            await ctx.send(str(e))
+            return
+        except FetchError:
+            await ctx.send("Failed to fetch game information.")
+            return
 
-                if response.status != 200:
-                    if response.status == 404:
-                        await ctx.send("That game doesn't exist on twitch.")
-                    else:
-                        await ctx.send("Failed to fetch the game.")
-                    return
-                game_id = data["data"][0]["id"]
+        try:
+            streams = await game.fetch_streams()
+        except StreamFetchError as e:
+            await ctx.send(str(e))
+            return
 
-            async with session.get(
-                TWITCH_STREAMS_ENDPOINT,
-                headers=headers,
-                params={"game_id": game_id, "first": 2},
-            ) as response:
-                if response.status != 200:
-                    await ctx.send(
-                        f"Error {response.status} was raised while fetching streams."
-                    )
-                    return
+        if not streams:
+            await ctx.send("No streams found for this game.")
+            return
 
-                data = await response.json()
+        embeds: List[discord.Embed] = []
 
-                await ctx.send(data)
+        for stream in streams:
+            embed = stream.make_embed()
+            embeds.append(embed)
+
+        await ctx.reply(embeds=embeds, mention_author=False)
