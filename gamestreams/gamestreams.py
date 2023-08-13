@@ -51,9 +51,20 @@ class StreamFetchError(FetchError):
     """Exception for stream fetch errors."""
 
 
+class RoleConverter(commands.RoleConverter):
+    async def convert(self, ctx: commands.GuildContext, argument: str) -> discord.Role:
+        if argument.lower() in ("everyone", "@everyone"):
+            return ctx.guild.default_role
+        return await super().convert(ctx, argument)
+
+
 class Stream:
     def __init__(self, data: dict) -> None:
         self.data = data
+        self.id: int = int(data["id"])
+
+    def __hash__(self) -> int:
+        return hash(self.id)
 
     def make_embed(self) -> discord.Embed:
         embed = discord.Embed(
@@ -84,10 +95,15 @@ class Game:
     def __init__(self, data: dict, headers: dict) -> None:
         self.data = data
         self.headers = headers
+        self.id: int = int(data["id"])
+
         self._rate_limit_resets = set()
         self._rate_limit_remaining = (
             800  # Assuming an initial limit of 800 requests per minute
         )
+
+    def __hash__(self) -> int:
+        return hash(self.id)
 
     async def wait_for_rate_limit_reset(self) -> None:
         current_time = int(time.time())
@@ -110,7 +126,7 @@ class Game:
             async with session.get(
                 TWITCH_STREAMS_ENDPOINT,
                 headers=self.headers,
-                params={"game_id": self.data["id"], "first": 100},
+                params={"game_id": self.id, "first": 100},
             ) as response:
                 if response.status == 429:
                     reset = response.headers.get("Ratelimit-Reset")
@@ -150,6 +166,7 @@ class GameStreams(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
         self.game_data_cache: Dict[str, Optional[Game]] = {}
+        self.game_streams_cache: Dict[Game, List[Stream]] = {}
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
@@ -255,3 +272,53 @@ class GameStreams(commands.Cog):
         pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
 
         await pages.start(ctx)
+
+    @gamestreams_twitch.command(name="alert")
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
+    async def gamestreams_twitch_alert(
+        self,
+        ctx: commands.GuildContext,
+        channel: Optional[discord.TextChannel] = None,
+        ping_role: Optional[RoleConverter] = None,
+        *,
+        game_name: str,
+    ) -> None:
+        """Search ongoing streams for a game on Twitch."""
+        if self.streams_cog is None:
+            await ctx.send(
+                f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
+            )
+            return
+
+        if channel is None:
+            if not isinstance(ctx.channel, discord.TextChannel):
+                await ctx.send("Announcements channel must be a text channel.")
+                return
+            channel = ctx.channel
+
+        await self.streams_cog.maybe_renew_twitch_bearer_token()
+        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
+
+        if token is None:
+            await ctx.send(
+                "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
+            )
+            return
+
+        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+        if access_token is None:
+            await ctx.send("Failed to fetch the access token for Twitch API.")
+            return
+
+        headers = {
+            "Client-ID": token,
+            "Authorization": f"Bearer {access_token}",
+        }
+
+        try:
+            game = await self.fetch_game(game_name, headers)
+        except Exception as error:
+            await ctx.send(str(error))
+            return
