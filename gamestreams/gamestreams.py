@@ -58,9 +58,7 @@ class Stream:
             url=f"https://twitch.tv/{self.data['user_login']}",
             color=discord.Color.purple(),
         )
-        embed.set_thumbnail(
-            url=self.data["thumbnail_url"].format(width=320, height=180)
-        )
+        embed.set_image(url=self.data["thumbnail_url"].format(width=1280, height=720))
         embed.add_field(
             name="Viewer Count",
             value=f"{self.data['viewer_count']} viewers",
