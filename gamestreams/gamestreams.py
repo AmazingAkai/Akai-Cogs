@@ -48,19 +48,30 @@ class StreamFetchError(FetchError):
 
 
 class Stream:
-    def __init__(self, data: dict, headers: dict) -> None:
+    def __init__(self, data: dict) -> None:
         self.data = data
-        self.headers = headers
 
     def make_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title=self.data["title"],
-            description=self.data["user_name"],
-            url=f"https://twitch.tv/{self.data['user_name']}",
+            description=f"**{self.data['user_name']}** is streaming **{self.data['game_name']}**",
+            url=f"https://twitch.tv/{self.data['user_login']}",
+            color=discord.Color.purple(),
         )
         embed.set_thumbnail(
             url=self.data["thumbnail_url"].format(width=320, height=180)
         )
+        embed.add_field(
+            name="Viewer Count",
+            value=f"{self.data['viewer_count']} viewers",
+            inline=True,
+        )
+        embed.add_field(name="Language", value=self.data["language"], inline=True)
+        embed.add_field(name="Started At", value=self.data["started_at"], inline=True)
+        if self.data["tags"]:
+            embed.add_field(
+                name="Tags", value=", ".join(self.data["tags"]), inline=False
+            )
         return embed
 
 
@@ -74,6 +85,7 @@ class Game:
             title=self.data["name"],
             description=self.data["summary"],
             url=f"https://www.twitch.tv/directory/game/{self.data['name']}",
+            color=discord.Color.purple(),
         )
         embed.set_thumbnail(url=self.data["box_art_url"].format(width=285, height=380))
         return embed
@@ -94,7 +106,7 @@ class Game:
 
                 data = await response.json()
                 for stream_data in data.get("data", []):
-                    stream = Stream(stream_data, self.headers)
+                    stream = Stream(stream_data)
                     streams.append(stream)
 
         return streams
