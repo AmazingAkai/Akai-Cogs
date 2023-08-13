@@ -166,21 +166,37 @@ class GameStreams(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
-        self.game_data_cache: Dict[str, Optional[Game]] = {}
-        self.game_streams_cache: Dict[Game, List[Stream]] = {}
+
+        self.games: Dict[str, Optional[Game]] = {}
+        self.streams: Dict[Game, List[Stream]] = {}
 
         self.config = Config.get_conf(self, identifier=7474034061)
-        self.config.register_guild(
+        self.config.register_global(
             alerts=[]
-        )  # List of Dict having game_name, ping_role_id and channel_id
+        )  # List of Dict having game_name and alerts (List of dicts having channel_id, guild_id and ping_role_id)
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
+    async def check_streams(self):
+        if self.streams_cog is None:
+            return
+        await self.streams_cog.maybe_renew_twitch_bearer_token()
+        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
+        if token is None:
+            return
+        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+        if access_token is None:
+            return
+        headers = {
+            "Client-ID": token,
+            "Authorization": f"Bearer {access_token}",
+        }
+
     async def fetch_game(self, game_name: str, headers: dict) -> Game:
-        if game_name.lower() in self.game_data_cache:
-            game = self.game_data_cache[game_name.lower()]
+        if game_name.lower() in self.games:
+            game = self.games[game_name.lower()]
             if game is not None:
                 return game
 
@@ -200,11 +216,11 @@ class GameStreams(commands.Cog):
                 data = await response.json()
                 games_data = data["data"]
                 if not games_data:
-                    self.game_data_cache[game_name.lower()] = None
+                    self.games[game_name.lower()] = None
                     raise GameNotFoundError("That game does not exist on Twitch.")
 
                 game = Game(games_data[0], headers)
-                self.game_data_cache[game_name.lower()] = game
+                self.games[game_name.lower()] = game
                 return game
 
     @commands.group(name="gamestreams", aliases=["gs", "gamestream"])
@@ -329,24 +345,47 @@ class GameStreams(commands.Cog):
             await ctx.send(str(error))
             return
 
-        async with self.config.guild(ctx.guild).alerts() as alerts:
-            for existing_alert in alerts:
-                if (
-                    existing_alert["name"] == game.name
-                    and existing_alert["channel_id"] == channel.id
-                ):
-                    alerts.remove(existing_alert)
-                    await ctx.send(
-                        f"Successfully removed the alert for `{game.name}` from {channel.mention}."
-                    )
-                    return
+        alerts = await self.config.alerts()
 
-            alert = {
-                "name": game.name,
-                "channel_id": channel.id,
-                "ping_role_id": ping_role.id if ping_role else None,
-            }
-            alerts.append(alert)
-            await ctx.send(
-                f"Successfully added an alert for `{game.name}` in {channel.mention}."
+        removed = False
+
+        for alert in alerts:
+            if alert["game"] == game.name.lower():
+                for game_alert in alert["alerts"]:
+                    if (
+                        game_alert["guild_id"] == ctx.guild.id
+                        and game_alert["channel_id"] == channel.id
+                    ):
+                        alert["alerts"].remove(game_alert)
+                        removed = True
+                        break
+                else:
+                    alert["alerts"].append(
+                        {
+                            "guild_id": ctx.guild.id,
+                            "channel_id": channel.id,
+                            "ping_role_id": ping_role.id if ping_role else None,
+                        }
+                    )
+                break
+        else:
+            alerts.append(
+                {
+                    "game": game.name.lower(),
+                    "alerts": [
+                        {
+                            "guild_id": ctx.guild.id,
+                            "channel_id": channel.id,
+                            "ping_role_id": ping_role.id if ping_role else None,
+                        }
+                    ],
+                }
             )
+
+        await self.config.alerts.set(alerts)
+
+        message = (
+            f"Successfully {'removed' if removed else 'added'} alert for `{game.name}` "
+            f"to {channel.mention}."
+        )
+        await ctx.reply(message, mention_author=False)
