@@ -144,7 +144,10 @@ class GameStreams(commands.Cog):
                 return Game(games_data[0], headers)
 
     @commands.command(name="findtwitchstreams")
-    async def find_twitch_streams(self, ctx: commands.Context, game_name: str) -> None:
+    @commands.guild_only()
+    async def find_twitch_streams(
+        self, ctx: commands.GuildContext, game_name: str
+    ) -> None:
         if self.streams_cog is None:
             await ctx.send(
                 f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
@@ -188,8 +191,12 @@ class GameStreams(commands.Cog):
 
         embeds: List[discord.Embed] = []
 
-        for stream in streams:
+        for i, stream in enumerate(streams):
             embed = stream.make_embed()
+            embed.set_footer(
+                text=f"Page {i + 1}/{len(streams)}",
+                icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
+            )
             embeds.append(embed)
 
         pages = SimpleMenu(embeds, disable_after_timeout=True)
