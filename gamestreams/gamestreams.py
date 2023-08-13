@@ -26,13 +26,13 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 import aiohttp
 import discord
 from redbot.cogs.streams import streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
-from redbot.core import commands
+from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.utils.views import SimpleMenu
 
@@ -95,6 +95,7 @@ class Game:
     def __init__(self, data: dict, headers: dict) -> None:
         self.data = data
         self.headers = headers
+        self.name = self.data["name"]
         self.id: int = int(data["id"])
 
         self._rate_limit_resets = set()
@@ -167,6 +168,11 @@ class GameStreams(commands.Cog):
         self.bot = bot
         self.game_data_cache: Dict[str, Optional[Game]] = {}
         self.game_streams_cache: Dict[Game, List[Stream]] = {}
+
+        self.config = Config.get_conf(self, identifier=7474034061)
+        self.config.register_guild(
+            alerts=[]
+        )  # List of Dict having game_name, ping_role_id and channel_id
 
     @property
     def streams_cog(self) -> Optional[streams.Streams]:
@@ -281,7 +287,7 @@ class GameStreams(commands.Cog):
         self,
         ctx: commands.GuildContext,
         channel: Optional[discord.TextChannel] = None,
-        ping_role: Optional[RoleConverter] = None,
+        ping_role: Optional[Annotated[discord.Role, RoleConverter]] = None,
         *,
         game_name: str,
     ) -> None:
@@ -322,3 +328,25 @@ class GameStreams(commands.Cog):
         except Exception as error:
             await ctx.send(str(error))
             return
+
+        async with self.config.guild(ctx.guild).alerts() as alerts:
+            for existing_alert in alerts:
+                if (
+                    existing_alert["name"] == game.name
+                    and existing_alert["channel_id"] == channel.id
+                ):
+                    alerts.remove(existing_alert)
+                    await ctx.send(
+                        f"Successfully removed the alert for `{game.name}` from {channel.mention}."
+                    )
+                    return
+
+            alert = {
+                "name": game.name,
+                "channel_id": channel.id,
+                "ping_role_id": ping_role.id if ping_role else None,
+            }
+            alerts.append(alert)
+            await ctx.send(
+                f"Successfully added an alert for `{game.name}` in {channel.mention}."
+            )
