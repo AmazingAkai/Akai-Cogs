@@ -140,7 +140,10 @@ class GameStreams(commands.Cog):
                         raise FetchError("Failed to fetch the game.")
 
                 data = await response.json()
-                game_data = data["data"][0]
+                games_data = data["data"]
+                if not games_data:
+                    raise GameNotFoundError("That game doesn't exist on Twitch.")
+                game_data = games_data[0]
                 game = Game(game_data, headers)
                 return game
 
