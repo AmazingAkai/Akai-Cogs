@@ -31,6 +31,7 @@ from typing import Annotated, Any, Dict, List, Optional
 
 import aiohttp
 import discord
+from discord.ext import tasks
 from iso639 import NonExistentLanguageError, to_name
 from redbot.cogs.streams.streams import Streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
@@ -217,20 +218,31 @@ class GameStreams(commands.Cog):
             datetime.timezone.utc
         )
 
+        self.check_streams.start()
+
     @property
     def streams_cog(self) -> Optional[Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
+    def cog_unload(self):
+        self.check_streams.cancel()
+
+    @tasks.loop(minutes=5)
     async def check_streams(self):
         if self.streams_cog is None:
             return
+
         await self.streams_cog.maybe_renew_twitch_bearer_token()
-        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
+        token = (await self.bot.get_shared_api_tokens("twitch"))["client_id"]
+
         if token is None:
             return
+
         access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+
         if access_token is None:
             return
+
         headers = {
             "Client-ID": token,
             "Authorization": f"Bearer {access_token}",
@@ -241,49 +253,42 @@ class GameStreams(commands.Cog):
         for game_alert in game_alerts:
             game_name = game_alert["game"]
             game = await self.fetch_game(game_name, headers=headers)
-
             alerts = game_alert["alerts"]
-
             streams = await game.fetch_streams()
 
             new_streams = [
                 stream for stream in streams if stream.started_at >= self.last_checked
             ]
-            if new_streams:
-                for stream in new_streams:
-                    embed = stream.make_embed()
-                    for alert in alerts:
-                        guild = self.bot.get_guild(alert["guild_id"])
-                        if guild is None:
-                            continue
-                        channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
 
-                        if channel is None:
-                            continue
+            for stream in new_streams:
+                embed = stream.make_embed()
 
-                        ping_role: Optional[discord.Role] = guild.get_role(
-                            alert["ping_role"]
+                for alert in alerts:
+                    guild = self.bot.get_guild(alert["guild_id"])
+
+                    if guild is None:
+                        continue
+
+                    channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
+
+                    if channel is None:
+                        continue
+
+                    ping_role = guild.get_role(alert["ping_role"])
+
+                    try:
+                        ping_role_fmt = ping_role.mention if ping_role else "@everyone"
+                        message = f"{ping_role_fmt}, A new stream for **{game.name}** has started: "
+
+                        await channel.send(
+                            message,
+                            embed=embed,
+                            allowed_mentions=discord.AllowedMentions(roles=True),
                         )
-                        try:
-                            if ping_role is None:
-                                await channel.send(
-                                    f"A new stream for **{game.name}** has started: ",
-                                    embed=embed,
-                                )
-                            else:
-                                ping_role_fmt = (
-                                    ping_role.mention
-                                    if ping_role.id != guild.id
-                                    else "@everyone"
-                                )
-                                await channel.send(
-                                    f"{ping_role_fmt}, A new stream for **{game.name}** has started: ",
-                                    embed=embed,
-                                )
-                        except discord.HTTPException:
-                            continue
+                    except discord.HTTPException:
+                        continue
 
-            self.last_checked = datetime.datetime.now(datetime.timezone.utc)
+        self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
     async def announce_new_stream(
         self,
