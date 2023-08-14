@@ -529,7 +529,7 @@ class GameStreams(commands.Cog):
         embeds: List[discord.Embed] = []
 
         for i, alert in enumerate(alerts):
-            game_name = alert["name"]
+            game_name = alert["game"]
             game_alerts = alert["alerts"]
 
             description = ""
