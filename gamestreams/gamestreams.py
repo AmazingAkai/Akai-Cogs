@@ -538,7 +538,7 @@ class GameStreams(commands.Cog):
                 guild = ctx.bot.get_guild(game_alert["guild_id"])
                 channel = guild.get_channel(game_alert["channel_id"]) if guild else None
 
-                f"{i+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}"
+                description += f"{i+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}\n"
 
             embed = discord.Embed(
                 title=game_name.title(),
@@ -548,7 +548,8 @@ class GameStreams(commands.Cog):
 
             embed.set_footer(text=f"Page {i + 1}/{len(alerts)}")
 
-            embeds.append(embed)
+            if description:
+                embeds.append(embed)
 
         if embeds:
             pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
