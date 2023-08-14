@@ -98,7 +98,11 @@ class Stream:
             inline=False,
         )
         embed.add_field(name="Language", value=self.language, inline=False)
-        embed.add_field(name="Started At", value=self.started_at, inline=False)
+        embed.add_field(
+            name="Started At",
+            value=discord.utils.format_dt(self.started_at),
+            inline=False,
+        )
         embed.add_field(
             name="Is Adult Stream?",
             value="Yes" if self.is_mature else "No",
@@ -202,7 +206,10 @@ class GameStreams(commands.Cog):
         self.games: Dict[str, Optional[Game]] = {}
 
         self.config = Config.get_conf(self, identifier=7474034061)
-        self.config.register_global(alerts=[], last_checked=None)
+        self.config.register_global(alerts=[])
+        self.last_checked: datetime.datetime = datetime.datetime.now(
+            datetime.timezone.utc
+        )
 
     @property
     def streams_cog(self) -> Optional[Streams]:
