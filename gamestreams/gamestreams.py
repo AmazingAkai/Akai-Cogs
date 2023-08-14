@@ -290,15 +290,6 @@ class GameStreams(commands.Cog):
 
         self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
-    async def announce_new_stream(
-        self,
-        stream: Stream,
-        guild: discord.Guild,
-        channel: discord.TextChannel,
-        ping_role: Optional[discord.Role] = None,
-    ):
-        embed = stream.make_embed()
-
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
             game = self.games[game_name.lower()]
