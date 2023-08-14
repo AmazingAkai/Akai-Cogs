@@ -25,6 +25,7 @@ SOFTWARE.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import time
 from typing import Annotated, Any, Dict, List, Optional
 
@@ -59,35 +60,52 @@ class RoleConverter(commands.RoleConverter):
 
 
 class Stream:
-    def __init__(self, data: dict) -> None:
+    def __init__(self, game: Game, data: dict) -> None:
+        self.game = game
         self.data = data
+
         self.id: int = int(data["id"])
+        self.title: str = data["title"]
+        self.user_name: str = data["user_name"]
+        self.user_login: str = data["user_login"]
+        self.game_name: str = data["game_name"]
+        self.image: str = data["thumbnail_url"].format(width=1280, height=720)
+        self.viewer_count: int = data["viewer_count"]
+        self.language: str = data["language"]
+        self.started_at: datetime.datetime = datetime.datetime.strptime(
+            data["started_at"], "%Y-%m-%dT%H:%M:%SZ"
+        )
+        self.is_mature: bool = data["is_mature"]
+        self.tags: List[str] = data["tags"]
 
     def __hash__(self) -> int:
         return hash(self.id)
 
     def make_embed(self) -> discord.Embed:
         embed = discord.Embed(
-            title=self.data["title"],
-            description=f"**{self.data['user_name']}** is streaming **{self.data['game_name']}**",
-            url=f"https://twitch.tv/{self.data['user_login']}",
+            title=self.title,
+            description=f"**{self.user_name}** is streaming **{self.game_name}**",
+            url=f"https://twitch.tv/{self.user_login}",
             color=discord.Color.purple(),
         )
-        embed.set_image(url=self.data["thumbnail_url"].format(width=1280, height=720))
+
+        embed.set_image(url=self.image)
+        embed.set_thumbnail(url=self.game.image)
+
         embed.add_field(
             name="Viewer Count",
-            value=f"{self.data['viewer_count']} viewers",
+            value=f"{self.viewer_count} viewers",
             inline=False,
         )
-        embed.add_field(name="Language", value=self.data["language"], inline=False)
-        embed.add_field(name="Started At", value=self.data["started_at"], inline=False)
+        embed.add_field(name="Language", value=self.language, inline=False)
+        embed.add_field(name="Started At", value=self.started_at, inline=False)
         embed.add_field(
-            name="Is Adult Stream?", value=self.data["is_mature"], inline=False
+            name="Is Adult Stream?",
+            value="Yes" if self.is_mature else "No",
+            inline=False,
         )
-        if self.data["tags"]:
-            embed.add_field(
-                name="Tags", value=", ".join(self.data["tags"]), inline=False
-            )
+        if self.tags:
+            embed.add_field(name="Tags", value=", ".join(self.tags), inline=False)
         return embed
 
 
@@ -95,8 +113,10 @@ class Game:
     def __init__(self, data: dict, headers: dict) -> None:
         self.data = data
         self.headers = headers
+
         self.name = self.data["name"]
         self.id: int = int(data["id"])
+        self.image: str = data["box_art_url"].format(width=180, height=180)
 
         self._rate_limit_resets = set()
         self._rate_limit_remaining = (
@@ -149,7 +169,7 @@ class Game:
 
                 data = await response.json()
                 for stream_data in data.get("data", []):
-                    stream = Stream(stream_data)
+                    stream = Stream(self, stream_data)
                     streams.append(stream)
 
                 # Check if there's more data to fetch
