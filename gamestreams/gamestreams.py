@@ -31,6 +31,7 @@ from typing import Annotated, Any, Dict, List, Optional
 
 import aiohttp
 import discord
+from iso639 import NonExistentLanguageError, to_name
 from redbot.cogs.streams.streams import Streams
 from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
 from redbot.core import Config, commands
@@ -71,7 +72,12 @@ class Stream:
         self.game_name: str = data["game_name"]
         self.image: str = data["thumbnail_url"].format(width=1280, height=720)
         self.viewer_count: int = data["viewer_count"]
-        self.language: str = data["language"]
+
+        try:
+            self.language: str = to_name(data["language"])
+        except NonExistentLanguageError:
+            self.language: str = data["language"]
+
         self.started_at: datetime.datetime = datetime.datetime.strptime(
             data["started_at"], "%Y-%m-%dT%H:%M:%SZ"
         )

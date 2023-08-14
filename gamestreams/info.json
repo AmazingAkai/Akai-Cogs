@@ -16,6 +16,7 @@
     "send_messages",
     "embed_link"
   ],
+  "requirements": ["iso639"],
   "required_cogs": {"streams": "https://github.com/Cog-Creators/Red-DiscordBot"},
   "end_user_data_statement": "This cog only processes data related to game stream announcements and does not store any personal user information.",
   "type": "COG"
