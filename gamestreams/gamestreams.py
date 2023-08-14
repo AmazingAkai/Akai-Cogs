@@ -534,11 +534,11 @@ class GameStreams(commands.Cog):
 
             description = ""
 
-            for i, game_alert in enumerate(game_alerts):
+            for j, game_alert in enumerate(game_alerts):
                 guild = ctx.bot.get_guild(game_alert["guild_id"])
                 channel = guild.get_channel(game_alert["channel_id"]) if guild else None
 
-                description += f"{i+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}\n"
+                description += f"{j+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}\n"
 
             embed = discord.Embed(
                 title=game_name.title(),
