@@ -105,8 +105,8 @@ class Stream:
         )
         embed.add_field(name="Language", value=self.language, inline=False)
         embed.add_field(
-            name="Started At",
-            value=discord.utils.format_dt(self.started_at),
+            name="Started",
+            value=f"{discord.utils.format_dt(self.started_at, style='R')} ({discord.utils.format_dt(self.started_at)})",
             inline=False,
         )
         embed.add_field(
