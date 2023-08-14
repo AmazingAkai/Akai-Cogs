@@ -235,39 +235,86 @@ class GameStreams(commands.Cog):
     def cog_unload(self):
         self.check_streams.cancel()
 
-    @tasks.loop(minutes=5)
-    async def check_streams(self):
-        if self.streams_cog is None:
-            return
+    async def fetch_game_headers(self):
+        if not self.streams_cog:
+            return None
 
         await self.streams_cog.maybe_renew_twitch_bearer_token()
         token = (await self.bot.get_shared_api_tokens("twitch"))["client_id"]
 
         if token is None:
-            return
+            return None
 
         access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
 
         if access_token is None:
-            return
+            return None
 
         headers = {
             "Client-ID": token,
             "Authorization": f"Bearer {access_token}",
         }
 
+        return headers
+
+    async def process_game_alert(self, game_alert: dict, headers: dict):
+        game_name = game_alert["game"]
+        game = await self.fetch_game(game_name, headers=headers)
+        alerts = game_alert["alerts"]
+        streams = await game.fetch_streams()
+
+        new_streams = [
+            stream for stream in streams if stream.started_at >= self.last_checked
+        ]
+        self.last_checked = datetime.datetime.now(datetime.timezone.utc)
+
+        return new_streams, game, alerts
+
+    async def send_alert_message(
+        self,
+        game: Game,
+        *,
+        channel: discord.TextChannel,
+        embed: discord.Embed,
+        ping_role: Optional[discord.Role] = None,
+    ):
+        try:
+            ping_role_fmt = (
+                (
+                    "@everyone, "
+                    if ping_role == channel.guild.default_role
+                    else f"{ping_role.mention}, "
+                )
+                if ping_role
+                else ""
+            )
+
+            await channel.send(
+                f"{ping_role_fmt}A new stream for **{game.name}** has started: ",
+                embed=embed,
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=True,
+                    roles=True,
+                ),
+            )
+        except discord.HTTPException:
+            pass
+
+    @tasks.loop(minutes=5)
+    async def check_streams(self):
+        if self.streams_cog is None:
+            return
+
+        headers = await self.fetch_game_headers()
+        if headers is None:
+            return
+
         game_alerts = await self.config.alerts()
 
         for game_alert in game_alerts:
-            game_name = game_alert["game"]
-            game = await self.fetch_game(game_name, headers=headers)
-            alerts = game_alert["alerts"]
-            streams = await game.fetch_streams()
-
-            new_streams = [
-                stream for stream in streams if stream.started_at >= self.last_checked
-            ]
-            self.last_checked = datetime.datetime.now(datetime.timezone.utc)
+            new_streams, game, alerts = await self.process_game_alert(
+                game_alert, headers
+            )
 
             for stream in new_streams:
                 embed = stream.make_embed()
@@ -285,29 +332,9 @@ class GameStreams(commands.Cog):
 
                     ping_role = guild.get_role(alert["ping_role_id"])
 
-                    try:
-                        ping_role_fmt = (
-                            (
-                                "@everyone, "
-                                if ping_role == guild.default_role
-                                else f"{ping_role.mention}, "
-                            )
-                            if ping_role
-                            else ""
-                        )
-
-                        message = f"{ping_role_fmt}A new stream for **{game.name}** has started: "
-
-                        await channel.send(
-                            message,
-                            embed=embed,
-                            allowed_mentions=discord.AllowedMentions(
-                                everyone=True,
-                                roles=True,
-                            ),
-                        )
-                    except discord.HTTPException:
-                        continue
+                    await self.send_alert_message(
+                        game=game, channel=channel, embed=embed, ping_role=ping_role
+                    )
 
     @check_streams.before_loop
     async def checK_streams_before_loop(self):
