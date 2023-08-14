@@ -55,9 +55,13 @@ class StreamFetchError(FetchError):
 
 
 class RoleConverter(commands.RoleConverter):
-    async def convert(self, ctx: commands.GuildContext, argument: str) -> discord.Role:
+    async def convert(
+        self, ctx: commands.GuildContext, argument: str
+    ) -> Optional[discord.Role]:
         if argument.lower() in ("everyone", "@everyone"):
             return ctx.guild.default_role
+        if argument.lower().strip() == "none":
+            return None
         return await super().convert(ctx, argument)
 
 
