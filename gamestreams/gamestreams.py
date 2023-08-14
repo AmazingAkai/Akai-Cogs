@@ -277,8 +277,17 @@ class GameStreams(commands.Cog):
                     ping_role = guild.get_role(alert["ping_role_id"])
 
                     try:
-                        ping_role_fmt = ping_role.mention if ping_role else "@everyone"
-                        message = f"{ping_role_fmt}, A new stream for **{game.name}** has started: "
+                        ping_role_fmt = (
+                            (
+                                "@everyone, "
+                                if ping_role == guild.default_role
+                                else f"{ping_role.mention}, "
+                            )
+                            if ping_role
+                            else ""
+                        )
+
+                        message = f"{ping_role_fmt}A new stream for **{game.name}** has started: "
 
                         await channel.send(
                             message,
