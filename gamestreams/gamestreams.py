@@ -143,12 +143,12 @@ class Game:
                 await asyncio.sleep(wait_time)
 
     async def fetch_streams(self, cursor: Optional[str] = None) -> List[Stream]:
-        streams = []
+        streams: List[Stream] = []
 
         await self.wait_for_rate_limit_reset()
 
         async with aiohttp.ClientSession() as session:
-            params: Dict[str, Any] = {"game_id": self.id, "first": 100}
+            params: Dict[str, Any] = {"game_id": self.id, "first": 100, "type": "live"}
             if cursor:
                 params["after"] = cursor
 
@@ -191,7 +191,7 @@ class Game:
             if reset:
                 self._rate_limit_resets.add(int(reset))
 
-        return streams
+        return sorted(streams, key=lambda stream: stream.viewer_count, reverse=True)
 
 
 class GameStreams(commands.Cog):
