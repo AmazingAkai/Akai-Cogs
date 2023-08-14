@@ -274,7 +274,7 @@ class GameStreams(commands.Cog):
                     if channel is None:
                         continue
 
-                    ping_role = guild.get_role(alert["ping_role"])
+                    ping_role = guild.get_role(alert["ping_role_id"])
 
                     try:
                         ping_role_fmt = ping_role.mention if ping_role else "@everyone"
