@@ -80,7 +80,7 @@ class Stream:
 
         self.started_at: datetime.datetime = datetime.datetime.strptime(
             data["started_at"], "%Y-%m-%dT%H:%M:%SZ"
-        )
+        ).replace(tzinfo=datetime.timezone.utc)
         self.is_mature: bool = data["is_mature"]
         self.tags: List[str] = data["tags"]
 
@@ -221,56 +221,69 @@ class GameStreams(commands.Cog):
     def streams_cog(self) -> Optional[Streams]:
         return self.bot.get_cog("Streams")  # type: ignore
 
-    # async def check_streams(self):
-    #     if self.streams_cog is None:
-    #         return
-    #     await self.streams_cog.maybe_renew_twitch_bearer_token()
-    #     token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
-    #     if token is None:
-    #         return
-    #     access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
-    #     if access_token is None:
-    #         return
-    #     headers = {
-    #         "Client-ID": token,
-    #         "Authorization": f"Bearer {access_token}",
-    #     }
+    async def check_streams(self):
+        if self.streams_cog is None:
+            return
+        await self.streams_cog.maybe_renew_twitch_bearer_token()
+        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
+        if token is None:
+            return
+        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
+        if access_token is None:
+            return
+        headers = {
+            "Client-ID": token,
+            "Authorization": f"Bearer {access_token}",
+        }
 
-    #     game_alerts = await self.config.alerts()
+        game_alerts = await self.config.alerts()
 
-    #     for game_alert in game_alerts:
-    #         game_name = game_alert["game"]
-    #         game = await self.fetch_game(game_name, headers=headers)
+        for game_alert in game_alerts:
+            game_name = game_alert["game"]
+            game = await self.fetch_game(game_name, headers=headers)
 
-    #         alerts = game_alert["alerts"]
+            alerts = game_alert["alerts"]
 
-    #         streams = await game.fetch_streams()
-    #         if game in self.streams:
-    #             new_streams = [
-    #                 stream for stream in streams if stream not in self.streams
-    #             ]
-    #             if new_streams:
-    #                 for stream in new_streams:
-    #                     for alert in alerts:
-    #                         guild = self.bot.get_guild(alert["guild_id"])
-    #                         if guild is None:
-    #                             continue
-    #                         channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
-    #                         if channel is None:
-    #                             continue
+            streams = await game.fetch_streams()
 
-    #                         ping_role = guild.get_role(alert["ping_role_id"])
-    #                         await self.announce_new_stream(
-    #                             stream,
-    #                             guild=guild,
-    #                             channel=channel,
-    #                             ping_role=ping_role,
-    #                         )
-    #             else:
-    #                 pass
-    #             self.streams[game] = streams
-    #         else:
-    #             self.streams[game] = streams
+            new_streams = [
+                stream for stream in streams if stream.started_at >= self.last_checked
+            ]
+            if new_streams:
+                for stream in new_streams:
+                    embed = stream.make_embed()
+                    for alert in alerts:
+                        guild = self.bot.get_guild(alert["guild_id"])
+                        if guild is None:
+                            continue
+                        channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
+
+                        if channel is None:
+                            continue
+
+                        ping_role: Optional[discord.Role] = guild.get_role(
+                            alert["ping_role"]
+                        )
+                        try:
+                            if ping_role is None:
+                                await channel.send(
+                                    f"A new stream for **{game.name}** has started: ",
+                                    embed=embed,
+                                )
+                            else:
+                                ping_role_fmt = (
+                                    ping_role.mention
+                                    if ping_role.id != guild.id
+                                    else "@everyone"
+                                )
+                                await channel.send(
+                                    f"{ping_role_fmt}, A new stream for **{game.name}** has started: ",
+                                    embed=embed,
+                                )
+                        except discord.HTTPException:
+                            continue
+
+            self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
     async def announce_new_stream(
         self,
@@ -358,29 +371,30 @@ class GameStreams(commands.Cog):
             await ctx.send(str(error))
             return
 
-        try:
-            streams = await game.fetch_streams()
-        except StreamFetchError as error:
-            await ctx.send(str(error))
-            return
+        async with ctx.typing():
+            try:
+                streams = await game.fetch_streams()
+            except StreamFetchError as error:
+                await ctx.send(str(error))
+                return
 
-        if not streams:
-            await ctx.send("No streams found for this game.")
-            return
+            if not streams:
+                await ctx.send("No streams found for this game.")
+                return
 
-        embeds: List[discord.Embed] = []
+            embeds: List[discord.Embed] = []
 
-        for i, stream in enumerate(streams):
-            embed = stream.make_embed()
-            embed.set_footer(
-                text=f"Page {i + 1}/{len(streams)}",
-                icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
-            )
-            embeds.append(embed)
+            for i, stream in enumerate(streams):
+                embed = stream.make_embed()
+                embed.set_footer(
+                    text=f"Page {i + 1}/{len(streams)}",
+                    icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
+                )
+                embeds.append(embed)
 
-        pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
+            pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
 
-        await pages.start(ctx)
+            await pages.start(ctx)
 
     @gamestreams_twitch.command(name="alert", cooldown_after_parsing=True)
     @commands.guild_only()
