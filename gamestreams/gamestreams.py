@@ -263,6 +263,7 @@ class GameStreams(commands.Cog):
             new_streams = [
                 stream for stream in streams if stream.started_at >= self.last_checked
             ]
+            self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
             for stream in new_streams:
                 embed = stream.make_embed()
@@ -303,8 +304,6 @@ class GameStreams(commands.Cog):
                         )
                     except discord.HTTPException:
                         continue
-
-        self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
@@ -420,7 +419,7 @@ class GameStreams(commands.Cog):
         *,
         game_name: str,
     ) -> None:
-        """Search ongoing streams for a game on Twitch."""
+        """Announce streams for a specific game."""
         if self.streams_cog is None:
             await ctx.send(
                 f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
