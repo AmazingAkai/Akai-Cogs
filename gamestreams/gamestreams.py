@@ -292,7 +292,10 @@ class GameStreams(commands.Cog):
                         await channel.send(
                             message,
                             embed=embed,
-                            allowed_mentions=discord.AllowedMentions(roles=True),
+                            allowed_mentions=discord.AllowedMentions(
+                                everyone=True,
+                                roles=True,
+                            ),
                         )
                     except discord.HTTPException:
                         continue
