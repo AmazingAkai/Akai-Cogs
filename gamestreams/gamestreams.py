@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import logging
 import time
 from typing import Annotated, Any, Dict, List, Optional
 
@@ -40,6 +41,9 @@ from redbot.core.bot import Red
 from redbot.core.utils.views import SimpleMenu
 
 TWITCH_GAMES_ENDPOINT = TWITCH_BASE_URL + "/helix/games"
+
+
+log = logging.getLogger("akaicogs.gamestreams")
 
 
 class FetchError(Exception):
@@ -305,6 +309,14 @@ class GameStreams(commands.Cog):
                     except discord.HTTPException:
                         continue
 
+    @check_streams.before_loop
+    async def checK_streams_before_loop(self):
+        await self.bot.wait_until_ready()
+
+    @check_streams.error
+    async def check_streams_error(self, error: BaseException) -> None:
+        log.error("An error got raised while annoucing new streams: ", exc_info=error)
+
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
             game = self.games[game_name.lower()]
@@ -501,3 +513,45 @@ class GameStreams(commands.Cog):
             f"to {channel.mention}."
         )
         await ctx.reply(message, mention_author=False)
+
+    @gamestreams_twitch.command(name="alerts", cooldown_after_parsing=True)
+    @commands.guild_only()
+    @commands.is_owner()
+    @commands.cooldown(rate=1, per=5, type=commands.BucketType.member)
+    async def gamestreams_twitch_alerts(
+        self,
+        ctx: commands.GuildContext,
+    ) -> None:
+        """Check all the streams that get announced."""
+
+        alerts = await self.config.alerts()
+
+        embeds: List[discord.Embed] = []
+
+        for i, alert in enumerate(alerts):
+            game_name = alert["name"]
+            game_alerts = alert["alerts"]
+
+            description = ""
+
+            for i, game_alert in enumerate(game_alerts):
+                guild = ctx.bot.get_guild(game_alert["guild_id"])
+                channel = guild.get_channel(game_alert["channel_id"]) if guild else None
+
+                f"{i+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}"
+
+            embed = discord.Embed(
+                title=game_name.title(),
+                description=description,
+                colour=discord.Colour.random(),
+            )
+
+            embed.set_footer(text=f"Page {i + 1}/{len(alerts)}")
+
+            embeds.append(embed)
+
+        if embeds:
+            pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
+            await pages.start(ctx)
+        else:
+            await ctx.send("No saved game alerts.")
