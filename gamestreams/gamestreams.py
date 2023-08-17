@@ -308,6 +308,7 @@ class GameStreams(commands.Cog):
     @tasks.loop(seconds=1)
     async def post_streams(self) -> None:
         alerts = self.alerts.copy()
+        log.debug(f"New Alerts: {alerts}")
         for channel_id, embeds in alerts.items():
             del self.alerts[channel_id]
 
@@ -316,8 +317,8 @@ class GameStreams(commands.Cog):
                 for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
                     try:
                         await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
-                    except discord.HTTPException:
-                        pass
+                    # except discord.HTTPException:
+                    #     pass
                     except Exception as error:
                         log.error(error)
 
