@@ -271,7 +271,6 @@ class GameStreams(commands.Cog):
         new_streams = [
             stream for stream in streams if stream.started_at >= self.last_checked
         ]
-        self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
         return new_streams, alerts
 
@@ -285,7 +284,7 @@ class GameStreams(commands.Cog):
             return
 
         game_alerts = await self.config.alerts()
-
+        self.last_checked = datetime.datetime.now(datetime.timezone.utc)
         for game_alert in game_alerts:
             new_streams, alerts = await self.process_game_alert(game_alert, headers)
 
