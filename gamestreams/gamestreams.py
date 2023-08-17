@@ -28,7 +28,7 @@ import asyncio
 import datetime
 import logging
 import time
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional, Tuple
 
 import aiohttp
 import discord
@@ -225,8 +225,10 @@ class GameStreams(commands.Cog):
         self.last_checked: datetime.datetime = datetime.datetime.now(
             datetime.timezone.utc
         )
+        self.alerts: Dict[int, List[discord.Embed]] = {}
 
         self.check_streams.start()
+        self.post_streams_task = bot.loop.create_task(self.post_streams())
 
     @property
     def streams_cog(self) -> Optional[Streams]:
@@ -234,6 +236,7 @@ class GameStreams(commands.Cog):
 
     def cog_unload(self):
         self.check_streams.cancel()
+        self.post_streams_task.cancel()
 
     async def fetch_game_headers(self):
         if not self.streams_cog:
@@ -257,7 +260,9 @@ class GameStreams(commands.Cog):
 
         return headers
 
-    async def process_game_alert(self, game_alert: dict, headers: dict):
+    async def process_game_alert(
+        self, game_alert: dict, headers: dict
+    ) -> Tuple[List[Stream], List[dict]]:
         game_name = game_alert["game"]
         game = await self.fetch_game(game_name, headers=headers)
         alerts = game_alert["alerts"]
@@ -268,37 +273,7 @@ class GameStreams(commands.Cog):
         ]
         self.last_checked = datetime.datetime.now(datetime.timezone.utc)
 
-        return new_streams, game, alerts
-
-    async def send_alert_message(
-        self,
-        game: Game,
-        *,
-        channel: discord.TextChannel,
-        embed: discord.Embed,
-        ping_role: Optional[discord.Role] = None,
-    ):
-        try:
-            ping_role_fmt = (
-                (
-                    "@everyone, "
-                    if ping_role == channel.guild.default_role
-                    else f"{ping_role.mention}, "
-                )
-                if ping_role
-                else ""
-            )
-
-            await channel.send(
-                f"{ping_role_fmt}A new stream for **{game.name}** has started: ",
-                embed=embed,
-                allowed_mentions=discord.AllowedMentions(
-                    everyone=True,
-                    roles=True,
-                ),
-            )
-        except discord.HTTPException:
-            pass
+        return new_streams, alerts
 
     @tasks.loop(minutes=5)
     async def check_streams(self):
@@ -312,37 +287,31 @@ class GameStreams(commands.Cog):
         game_alerts = await self.config.alerts()
 
         for game_alert in game_alerts:
-            new_streams, game, alerts = await self.process_game_alert(
-                game_alert, headers
-            )
+            new_streams, alerts = await self.process_game_alert(game_alert, headers)
+
+            log.debug(f"New streams: {new_streams}")
 
             for stream in new_streams:
                 embed = stream.make_embed()
 
                 for alert in alerts:
-                    guild = self.bot.get_guild(alert["guild_id"])
-
-                    if guild is None:
-                        continue
-
-                    channel: Optional[discord.TextChannel] = guild.get_channel(alert["channel_id"])  # type: ignore
-
-                    if channel is None:
-                        continue
-
-                    ping_role = guild.get_role(alert["ping_role_id"])
-
-                    await self.send_alert_message(
-                        game=game, channel=channel, embed=embed, ping_role=ping_role
-                    )
+                    self.alerts.setdefault(alert["channel_id"], []).append(embed)
 
     @check_streams.before_loop
-    async def checK_streams_before_loop(self):
+    async def check_streams_before_loop(self):
         await self.bot.wait_until_ready()
 
     @check_streams.error
     async def check_streams_error(self, error: BaseException) -> None:
         log.error("An error got raised while annoucing new streams: ", exc_info=error)
+
+    async def post_streams(self):
+        while not self.bot.is_closed():
+            for channel_id, embeds in self.alerts.items():
+                channel = self.bot.get_channel(channel_id)
+                if channel is not None:
+                    for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
+                        await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
@@ -454,7 +423,6 @@ class GameStreams(commands.Cog):
         self,
         ctx: commands.GuildContext,
         channel: Optional[discord.TextChannel] = None,
-        ping_role: Optional[Annotated[discord.Role, RoleConverter]] = None,
         *,
         game_name: str,
     ) -> None:
@@ -515,7 +483,6 @@ class GameStreams(commands.Cog):
                         {
                             "guild_id": ctx.guild.id,
                             "channel_id": channel.id,
-                            "ping_role_id": ping_role.id if ping_role else None,
                         }
                     )
                 break
@@ -527,7 +494,6 @@ class GameStreams(commands.Cog):
                         {
                             "guild_id": ctx.guild.id,
                             "channel_id": channel.id,
-                            "ping_role_id": ping_role.id if ping_role else None,
                         }
                     ],
                 }
