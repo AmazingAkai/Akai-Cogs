@@ -308,19 +308,19 @@ class GameStreams(commands.Cog):
     @tasks.loop(seconds=1)
     async def post_streams(self) -> None:
         alerts = self.alerts.copy()
-        log.debug(f"New Alerts: {alerts}")
-        for channel_id, embeds in alerts.items():
-            del self.alerts[channel_id]
+        if alerts:
+            for channel_id, embeds in alerts.items():
+                del self.alerts[channel_id]
 
-            channel = self.bot.get_channel(channel_id)
-            if channel is not None:
-                for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
-                    try:
-                        await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
-                    # except discord.HTTPException:
-                    #     pass
-                    except Exception as error:
-                        log.error(error)
+                channel = self.bot.get_channel(channel_id)
+                if channel is not None:
+                    for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
+                        try:
+                            await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
+                        # except discord.HTTPException:
+                        #     pass
+                        except Exception as error:
+                            log.error(error)
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
