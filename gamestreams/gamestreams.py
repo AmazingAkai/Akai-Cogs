@@ -319,7 +319,7 @@ class GameStreams(commands.Cog):
                     except discord.HTTPException:
                         pass
                     except Exception as error:
-                        log.debug(error)
+                        log.error(error)
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
