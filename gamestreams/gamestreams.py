@@ -228,7 +228,7 @@ class GameStreams(commands.Cog):
         self.alerts: Dict[int, List[discord.Embed]] = {}
 
         self.check_streams.start()
-        self.post_streams_task = bot.loop.create_task(self.post_streams())
+        self.post_streams.start()
 
     @property
     def streams_cog(self) -> Optional[Streams]:
@@ -236,7 +236,7 @@ class GameStreams(commands.Cog):
 
     def cog_unload(self):
         self.check_streams.cancel()
-        self.post_streams_task.cancel()
+        self.post_streams.cancel()
 
     async def fetch_game_headers(self):
         if not self.streams_cog:
@@ -305,13 +305,13 @@ class GameStreams(commands.Cog):
     async def check_streams_error(self, error: BaseException) -> None:
         log.error("An error got raised while annoucing new streams: ", exc_info=error)
 
-    async def post_streams(self):
-        while not self.bot.is_closed():
-            for channel_id, embeds in self.alerts.items():
-                channel = self.bot.get_channel(channel_id)
-                if channel is not None:
-                    for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
-                        await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
+    @tasks.loop(seconds=1)
+    async def post_streams(self) -> None:
+        for channel_id, embeds in self.alerts.items():
+            channel = self.bot.get_channel(channel_id)
+            if channel is not None:
+                for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
+                    await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
