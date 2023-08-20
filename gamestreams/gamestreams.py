@@ -96,6 +96,9 @@ class Stream:
     def __hash__(self) -> int:
         return hash(self.id)
 
+    def __eq__(self, other: Game) -> bool:
+        return self.id == other.id
+
     def make_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title=self.title,
@@ -142,6 +145,9 @@ class Game:
 
     def __hash__(self) -> int:
         return hash(self.id)
+
+    def __eq__(self, other: Game) -> bool:
+        return self.id == other.id
 
     async def wait_for_rate_limit_reset(self) -> None:
         current_time = int(time.time())
@@ -262,10 +268,10 @@ class GameStreams(commands.Cog):
         alerts = game_alert["alerts"]
         streams = await game.fetch_streams()
 
-        cached_streams = self.monitored_games.get(game, [])
-
         if game in self.monitored_games.keys():
-            new_streams = [stream for stream in streams if not stream in cached_streams]
+            new_streams = [
+                stream for stream in streams if not stream in self.monitored_games[game]
+            ]
             self.monitored_games[game] = streams
             return new_streams, alerts
         else:
@@ -292,7 +298,7 @@ class GameStreams(commands.Cog):
             if new_game_alerts:
                 new_streams, alerts = new_game_alerts
                 log.debug(
-                    f"New streams for game {game_alert['game'].title()}: {new_streams}"
+                    f"New streams for game {game_alert['game'].title()}: {', '.join(stream.title for stream in new_streams)}"
                 )
 
                 for stream in new_streams:
