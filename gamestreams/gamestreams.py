@@ -96,7 +96,7 @@ class Stream:
     def __hash__(self) -> int:
         return hash(self.id)
 
-    def __eq__(self, other: Game) -> bool:
+    def __eq__(self, other: Stream) -> bool:
         return self.id == other.id
 
     def make_embed(self) -> discord.Embed:
