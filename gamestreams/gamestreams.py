@@ -238,7 +238,7 @@ class GameStreams(commands.Cog):
             return None
 
         await self.streams_cog.maybe_renew_twitch_bearer_token()
-        token = (await self.bot.get_shared_api_tokens("twitch"))["client_id"]
+        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
 
         if token is None:
             return None
