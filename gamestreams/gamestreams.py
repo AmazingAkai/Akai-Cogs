@@ -223,7 +223,6 @@ class GameStreams(commands.Cog):
 
         self.monitored_games: Dict[Game, List[Stream]] = {}
 
-        self.init: bool = False
         self.check_streams.start()
 
     @property
@@ -264,12 +263,14 @@ class GameStreams(commands.Cog):
         streams = await game.fetch_streams()
 
         cached_streams = self.monitored_games.get(game, [])
-        self.monitored_games[game] = streams
 
-        new_streams = [stream for stream in streams if not stream in cached_streams]
-
-        if not self.init:
+        if game in self.monitored_games.keys():
+            new_streams = [stream for stream in streams if not stream in cached_streams]
+            self.monitored_games[game] = streams
             return new_streams, alerts
+        else:
+            self.monitored_games[game] = streams
+            return [], alerts
 
     @tasks.loop(minutes=5)
     async def check_streams(self):
