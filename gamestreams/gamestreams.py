@@ -129,6 +129,9 @@ class Stream:
 
 
 class Game:
+    _rate_limit_resets = set()
+    _rate_limit_remaining = 800  # Assuming an initial limit of 800 requests per minute
+
     def __init__(self, data: dict, headers: dict) -> None:
         self.data = data
         self.headers = headers
@@ -136,11 +139,6 @@ class Game:
         self.name = self.data["name"]
         self.id: int = int(data["id"])
         self.image: str = data["box_art_url"].format(width=180, height=180)
-
-        self._rate_limit_resets = set()
-        self._rate_limit_remaining = (
-            800  # Assuming an initial limit of 800 requests per minute
-        )
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -222,13 +220,11 @@ class GameStreams(commands.Cog):
 
         self.config = Config.get_conf(self, identifier=7474034061)
         self.config.register_global(alerts=[])
-        self.last_checked: datetime.datetime = datetime.datetime.now(
-            datetime.timezone.utc
-        )
-        self.alerts: Dict[int, List[discord.Embed]] = {}
 
+        self.monitored_games: Dict[Game, List[Stream]] = {}
+
+        self.init: bool = False
         self.check_streams.start()
-        self.post_streams.start()
 
     @property
     def streams_cog(self) -> Optional[Streams]:
@@ -236,7 +232,6 @@ class GameStreams(commands.Cog):
 
     def cog_unload(self):
         self.check_streams.cancel()
-        self.post_streams.cancel()
 
     async def fetch_game_headers(self):
         if not self.streams_cog:
@@ -262,17 +257,19 @@ class GameStreams(commands.Cog):
 
     async def process_game_alert(
         self, game_alert: dict, headers: dict
-    ) -> Tuple[List[Stream], List[dict]]:
+    ) -> Optional[Tuple[List[Stream], List[dict]]]:
         game_name = game_alert["game"]
         game = await self.fetch_game(game_name, headers=headers)
         alerts = game_alert["alerts"]
         streams = await game.fetch_streams()
 
-        new_streams = [
-            stream for stream in streams if stream.started_at >= self.last_checked
-        ]
+        cached_streams = self.monitored_games.get(game, [])
+        self.monitored_games[game] = streams
 
-        return new_streams, alerts
+        new_streams = [stream for stream in streams if not stream in cached_streams]
+
+        if not self.init:
+            return new_streams, alerts
 
     @tasks.loop(minutes=5)
     async def check_streams(self):
@@ -285,32 +282,26 @@ class GameStreams(commands.Cog):
 
         game_alerts = await self.config.alerts()
         self.last_checked = datetime.datetime.now(datetime.timezone.utc)
+        to_post_alerts: Dict[int, List[discord.Embed]] = {}
+
         for game_alert in game_alerts:
-            new_streams, alerts = await self.process_game_alert(game_alert, headers)
+            new_game_alerts = await self.process_game_alert(game_alert, headers)
+            self.init = True
 
-            log.debug(f"New streams: {new_streams}")
+            if new_game_alerts:
+                new_streams, alerts = new_game_alerts
+                log.debug(
+                    f"New streams for game {game_alert['game'].title()}: {new_streams}"
+                )
 
-            for stream in new_streams:
-                embed = stream.make_embed()
+                for stream in new_streams:
+                    embed = stream.make_embed()
 
-                for alert in alerts:
-                    self.alerts.setdefault(alert["channel_id"], []).append(embed)
+                    for alert in alerts:
+                        to_post_alerts.setdefault(alert["channel_id"], []).append(embed)
 
-    @check_streams.before_loop
-    async def check_streams_before_loop(self):
-        await self.bot.wait_until_ready()
-
-    @check_streams.error
-    async def check_streams_error(self, error: BaseException) -> None:
-        log.error("An error got raised while annoucing new streams: ", exc_info=error)
-
-    @tasks.loop(seconds=1)
-    async def post_streams(self) -> None:
-        alerts = self.alerts.copy()
-        if alerts:
-            for channel_id, embeds in alerts.items():
-                del self.alerts[channel_id]
-
+        if to_post_alerts:
+            for channel_id, embeds in to_post_alerts.items():
                 channel = self.bot.get_channel(channel_id)
                 if channel is not None:
                     for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
@@ -320,6 +311,14 @@ class GameStreams(commands.Cog):
                         #     pass
                         except Exception as error:
                             log.error(error)
+
+    @check_streams.before_loop
+    async def check_streams_before_loop(self):
+        await self.bot.wait_until_ready()
+
+    @check_streams.error
+    async def check_streams_error(self, error: BaseException) -> None:
+        log.error("An error got raised while annoucing new streams: ", exc_info=error)
 
     async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
         if game_name.lower() in self.games:
@@ -373,24 +372,12 @@ class GameStreams(commands.Cog):
             )
             return
 
-        await self.streams_cog.maybe_renew_twitch_bearer_token()
-        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
-
-        if token is None:
+        headers = await self.fetch_game_headers()
+        if headers is None:
             await ctx.send(
                 "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
             )
             return
-
-        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
-        if access_token is None:
-            await ctx.send("Failed to fetch the access token for Twitch API.")
-            return
-
-        headers = {
-            "Client-ID": token,
-            "Authorization": f"Bearer {access_token}",
-        }
 
         try:
             game = await self.fetch_game(game_name, headers=headers)
@@ -441,30 +428,18 @@ class GameStreams(commands.Cog):
             )
             return
 
-        if channel is None:
-            if not isinstance(ctx.channel, discord.TextChannel):
-                await ctx.send("Announcements channel must be a text channel.")
-                return
-            channel = ctx.channel
-
-        await self.streams_cog.maybe_renew_twitch_bearer_token()
-        token = (await self.bot.get_shared_api_tokens("twitch")).get("client_id")
-
-        if token is None:
+        headers = await self.fetch_game_headers()
+        if headers is None:
             await ctx.send(
                 "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
             )
             return
 
-        access_token = self.streams_cog.ttv_bearer_cache.get("access_token")
-        if access_token is None:
-            await ctx.send("Failed to fetch the access token for Twitch API.")
-            return
-
-        headers = {
-            "Client-ID": token,
-            "Authorization": f"Bearer {access_token}",
-        }
+        if channel is None:
+            if not isinstance(ctx.channel, discord.TextChannel):
+                await ctx.send("Announcements channel must be a text channel.")
+                return
+            channel = ctx.channel
 
         try:
             game = await self.fetch_game(game_name, headers=headers)
