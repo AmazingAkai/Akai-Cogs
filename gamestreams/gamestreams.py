@@ -79,7 +79,7 @@ class Stream:
         self.user_name: str = data["user_name"]
         self.user_login: str = data["user_login"]
         self.game_name: str = data["game_name"]
-        self.image: str = data["thumbnail_url"].format(width=1280, height=720)
+        self.image: str = data["thumbnail_url"].format(width=1920, height=1080)
         self.viewer_count: int = data["viewer_count"]
 
         try:
