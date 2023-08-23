@@ -35,7 +35,11 @@ import discord
 from discord.ext import tasks
 from iso639 import NonExistentLanguageError, to_name
 from redbot.cogs.streams.streams import Streams
-from redbot.cogs.streams.streamtypes import TWITCH_BASE_URL, TWITCH_STREAMS_ENDPOINT
+from redbot.cogs.streams.streamtypes import (
+    TWITCH_BASE_URL,
+    TWITCH_STREAMS_ENDPOINT,
+    rnd,
+)
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.utils.views import SimpleMenu
@@ -107,7 +111,7 @@ class Stream:
             color=discord.Color.purple(),
         )
 
-        embed.set_image(url=self.image)
+        embed.set_image(url=rnd(self.image))
         embed.set_thumbnail(url=self.game.image)
 
         embed.add_field(
@@ -150,6 +154,12 @@ class Game:
         return self.id == other.id
 
     async def wait_for_rate_limit_reset(self) -> None:
+        """Check rate limits in response header and ensure we're following them.
+
+        From python-twitch-client and adapted to asyncio from Trusty-cogs:
+        https://github.com/tsifrer/python-twitch-client/blob/master/twitch/helix/base.py
+        https://github.com/TrustyJAID/Trusty-cogs/blob/master/twitch/twitch_api.py
+        """
         current_time = int(time.time())
         self._rate_limit_resets = {
             x for x in self._rate_limit_resets if x > current_time
