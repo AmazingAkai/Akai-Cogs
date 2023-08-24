@@ -22,11 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import discord
 from redbot.core import Config, commands
 from redbot.core.bot import Red
+from redbot.core.utils.views import SimpleMenu
 
 from .cache import Messages
 
@@ -76,7 +77,6 @@ class Snipe(commands.Cog):
         )
 
     @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
     @commands.group(invoke_without_command=True, aliases=["sn"])
     async def snipe(
         self,
@@ -86,6 +86,8 @@ class Snipe(commands.Cog):
         author: Optional[Union[discord.Member, discord.User]] = None,
     ):
         """Snipe a message in the given channel."""
+        if ctx.invoked_subcommand is not None:
+            return
 
         if not isinstance(
             ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
@@ -123,6 +125,68 @@ class Snipe(commands.Cog):
             name=message.author.display_name, icon_url=message.author.display_avatar
         )
         await ctx.reply(embed=embed, mention_author=False)
+
+    @commands.guild_only()
+    @snipe.command(name="bulk", aliases=["list"])
+    async def snipe_bulk(
+        self,
+        ctx: commands.GuildContext,
+        channel: Optional[SnipeableChannel] = None,
+        author: Optional[Union[discord.Member, discord.User]] = None,
+    ):
+        """Snipe all the deleted messages in the given channel."""
+
+        if ctx.invoked_subcommand is not None:
+            return
+
+        if not isinstance(
+            ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
+        ):
+            return await ctx.reply(
+                "You cannot snipe in this channel type.", mention_author=False
+            )
+
+        channel = ctx.channel if channel is None else channel
+
+        messages = self.messages.get(channel)
+
+        if messages is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        filtered_messages = messages.get_bulk(author)
+        if filtered_messages is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        embeds: List[discord.Embed] = []
+
+        for i, message in enumerate(filtered_messages):
+            embed = discord.Embed()
+            content = (
+                message.content
+                if len(message.content) < 4000
+                else message.content[:4000] + "..."
+            )
+            description = (
+                f"{content} ({discord.utils.format_dt(message.created_at, style='R')})"
+            )
+            embed = discord.Embed(
+                description=description,
+                colour=discord.Colour.dark_embed(),
+                timestamp=message.created_at,
+            )
+            embed.set_thumbnail(url=ctx.author.display_avatar)
+            embed.set_author(
+                name=message.author.display_name, icon_url=message.author.display_avatar
+            )
+            embed.set_footer(
+                text=f"Page {i + 1}/{len(filtered_messages)}",
+                icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
+            )
+            embeds.append(embed)
+
+        pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
+
+        await pages.start(ctx)
 
     @commands.group()
     @commands.has_permissions(manage_guild=True)
