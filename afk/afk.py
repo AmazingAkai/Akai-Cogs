@@ -33,7 +33,7 @@ from redbot.core import Config, commands
 class AwayFromKeyboard(commands.Cog):
     """Make the bot send a message whenever you are away from the keyboard."""
 
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
 
     def __init__(self, bot):
         self.bot = bot
@@ -76,7 +76,7 @@ class AwayFromKeyboard(commands.Cog):
                 pass
 
     async def remove_afk(
-        self, channel: discord.TextChannel, member: discord.Member
+        self, channel: discord.abc.MessageableChannel, member: discord.Member
     ) -> None:
         mentions = await self.config.member(member).mentions()
         chunks = discord.utils.as_chunks(mentions, 15)
@@ -116,6 +116,8 @@ class AwayFromKeyboard(commands.Cog):
         if not message.guild or message.author.bot:
             return
 
+        assert isinstance(message.author, discord.Member)
+
         cog_disabled = await self.bot.cog_disabled_in_guild(self, message.guild)
         if cog_disabled:
             return
@@ -131,6 +133,11 @@ class AwayFromKeyboard(commands.Cog):
                 await self.remove_afk(message.channel, message.author)
 
         for member in message.mentions:
+            if not isinstance(
+                member, discord.Member
+            ):  # Mentioned member is not in the guild.
+                continue
+
             member_data = await self.config.member(member).all()
             if member_data and member_data["afk"]:
                 await message.channel.send(
@@ -151,7 +158,7 @@ class AwayFromKeyboard(commands.Cog):
     @commands.guild_only()
     @commands.hybrid_command(aliases=["away", "touchgrass"])
     @commands.cooldown(1, 5.0, commands.BucketType.member)
-    async def afk(self, ctx: commands.Context, *, message: Optional[str] = None):
+    async def afk(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
         """Make the bot send a message whenever you are away from the keyboard."""
 
         data = await self.config.member(ctx.author).all()
@@ -181,8 +188,8 @@ class AwayFromKeyboard(commands.Cog):
             self.grace_period.remove(ctx.author.id)
 
     @commands.guild_only()
-    @commands.hybrid_group(aliases=["awayset"])
     @commands.has_permissions(manage_guild=True)
+    @commands.hybrid_group(name="afkset", aliases=["awayset"])
     async def afkset(self, ctx: commands.Context) -> None:
         """Set and manage afk command."""
 
@@ -192,7 +199,7 @@ class AwayFromKeyboard(commands.Cog):
 
     @afkset_blacklist.command(name="add", aliases=["a", "+"])
     async def afkset_blacklist_add(
-        self, ctx: commands.Context, channel: discord.TextChannel
+        self, ctx: commands.GuildContext, channel: discord.TextChannel
     ) -> None:
         """Add a blacklist channel to ignore AFK."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
@@ -206,7 +213,7 @@ class AwayFromKeyboard(commands.Cog):
 
     @afkset_blacklist.command(name="remove", aliases=["r", "-"])
     async def afkset_blacklist_remove(
-        self, ctx: commands.Context, channel: discord.TextChannel
+        self, ctx: commands.GuildContext, channel: discord.TextChannel
     ) -> None:
         """Remove a blacklist channel from ignoring AFK."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
@@ -219,7 +226,7 @@ class AwayFromKeyboard(commands.Cog):
             await ctx.message.add_reaction("✅")
 
     @afkset_blacklist.command(name="list")
-    async def afkset_blacklist_list(self, ctx: commands.Context) -> None:
+    async def afkset_blacklist_list(self, ctx: commands.GuildContext) -> None:
         """Get the list of channels where AFK is ignored."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
         description = ""

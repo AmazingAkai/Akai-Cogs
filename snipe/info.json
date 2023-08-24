@@ -1,0 +1,9 @@
+{
+	"name": "Snipe",
+	"author": [
+		"Akai"
+	],
+	"install_msg": "Thank you for installing Snipe cog.",
+	"description": "Snipes deleted or edited messages in a channel.",
+	"short": "Snipes deleted or edited messages in a channel."
+}
