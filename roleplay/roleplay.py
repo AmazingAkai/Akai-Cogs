@@ -23,12 +23,12 @@ SOFTWARE.
 """
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import aiohttp
 import discord
 from redbot.core import commands
-from redbot.core.utils.chat_formatting import humanize_number
+from redbot.core.bot import Red
 
 from .core import ACTIONS, NEKOS
 
@@ -42,11 +42,15 @@ class RolePlay(commands.Cog):
         """Nothing to delete."""
         return
 
-    def __init__(self, bot):
+    def __init__(self, bot: Red, command: Optional[commands.Command]):
+        self.original_hug_command = command
+
         self.bot = bot
         self.session = aiohttp.ClientSession()
 
     def cog_unload(self):
+        if self.original_hug_command is not None:
+            self.bot.add_command(self.original_hug_command)
         asyncio.create_task(self.session.close())
 
     __version__ = "0.2"
@@ -57,7 +61,12 @@ class RolePlay(commands.Cog):
         pre_processed = super().format_help_for_context(ctx)
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
-    async def get_embed(self, ctx, user, action: str):
+    async def send_embed(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]],
+        action: str,
+    ):
         async with self.session.get(NEKOS + action) as response:
             if response.status != 200:
                 return await ctx.send(
@@ -80,254 +89,398 @@ class RolePlay(commands.Cog):
             )
             log.exception(f"Command '{ctx.command.name}' failed to post:")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def baka(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def baka(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Baka baka baka!"""
-        await self.get_embed(ctx, user, "baka")
+        await self.send_embed(ctx, user, "baka")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def cry(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def cry(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Cry!"""
-        await self.get_embed(ctx, user, "cry")
+        await self.send_embed(ctx, user, "cry")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def cuddle(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def cuddle(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Cuddle a user!"""
-        await self.get_embed(ctx, user, "cuddle")
+        await self.send_embed(ctx, user, "cuddle")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def dance(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def dance(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Dance!"""
-        await self.get_embed(ctx, user, "dance")
+        await self.send_embed(ctx, user, "dance")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def feed(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def feed(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Feeds a user!"""
-        await self.get_embed(ctx, user, "feed")
+        await self.send_embed(ctx, user, "feed")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def hug(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def hug(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Hugs a user!"""
-        await self.get_embed(ctx, user, "hug")
+        await self.send_embed(ctx, user, "hug")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def kiss(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def kiss(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Kiss a user!"""
-        await self.get_embed(ctx, user, "kiss")
+        await self.send_embed(ctx, user, "kiss")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def laugh(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def laugh(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Laugh at someone!"""
-        await self.get_embed(ctx, user, "laugh")
+        await self.send_embed(ctx, user, "laugh")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def pat(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def pat(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Pats a user!"""
-        await self.get_embed(ctx, user, "pat")
+        await self.send_embed(ctx, user, "pat")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def poke(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def poke(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Poke a user!"""
-        await self.get_embed(ctx, user, "poke")
+        await self.send_embed(ctx, user, "poke")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def slap(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def slap(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Slap a user!"""
-        await self.get_embed(ctx, user, "slap")
+        await self.send_embed(ctx, user, "slap")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def smile(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def smile(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Smile!"""
-        await self.get_embed(ctx, user, "smile")
+        await self.send_embed(ctx, user, "smile")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def smug(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def smug(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Smugs at someone!"""
-        await self.get_embed(ctx, user, "smug")
+        await self.send_embed(ctx, user, "smug")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def tickle(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def tickle(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Tickle a user!"""
-        await self.get_embed(ctx, user, "tickle")
+        await self.send_embed(ctx, user, "tickle")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def wave(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def wave(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Waves!"""
-        await self.get_embed(ctx, user, "wave")
+        await self.send_embed(ctx, user, "wave")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def bite(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def bite(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Bite a user!"""
-        await self.get_embed(ctx, user, "bite")
+        await self.send_embed(ctx, user, "bite")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def blush(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def blush(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Blushes!"""
-        await self.get_embed(ctx, user, "blush")
+        await self.send_embed(ctx, user, "blush")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def bored(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def bored(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """You're bored!"""
-        await self.get_embed(ctx, user, "bored")
+        await self.send_embed(ctx, user, "bored")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def facepalm(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def facepalm(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Facepalm a user!"""
-        await self.get_embed(ctx, user, "facepalm")
+        await self.send_embed(ctx, user, "facepalm")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def happy(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def happy(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Share your happiness with a user!"""
-        await self.get_embed(ctx, user, "happy")
+        await self.send_embed(ctx, user, "happy")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def highfive(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def highfive(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Highfive a user!"""
-        await self.get_embed(ctx, user, "highfive")
+        await self.send_embed(ctx, user, "highfive")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def pout(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def pout(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Pout a user!"""
-        await self.get_embed(ctx, user, "pout")
+        await self.send_embed(ctx, user, "pout")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def shrug(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def shrug(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Shrugs a user!"""
-        await self.get_embed(ctx, user, "shrug")
+        await self.send_embed(ctx, user, "shrug")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def sleep(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def sleep(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Sleep zzzz!"""
-        await self.get_embed(ctx, user, "sleep")
+        await self.send_embed(ctx, user, "sleep")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def stare(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def stare(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Stares at a user!"""
-        await self.get_embed(ctx, user, "stare")
+        await self.send_embed(ctx, user, "stare")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def think(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def think(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Thinking!"""
-        await self.get_embed(ctx, user, "think")
+        await self.send_embed(ctx, user, "think")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def thumbsup(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def thumbsup(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Thumbsup!"""
-        await self.get_embed(ctx, user, "thumbsup")
+        await self.send_embed(ctx, user, "thumbsup")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def wink(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def wink(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Winks at a user!"""
-        await self.get_embed(ctx, user, "wink")
+        await self.send_embed(ctx, user, "wink")
 
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
     @commands.command(aliases=["handholding"])
-    @commands.bot_has_permissions(embed_links=True)
-    @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def handhold(self, ctx, user: Optional[discord.Member] = None):
+    async def handhold(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Handhold a user!"""
-        await self.get_embed(ctx, user, "handhold")
+        await self.send_embed(ctx, user, "handhold")
 
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
     @commands.command(aliases=["kicks"])
-    @commands.bot_has_permissions(embed_links=True)
-    @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def vkick(self, ctx, user: Optional[discord.Member] = None):
+    async def rkick(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Kick a user!"""
-        await self.get_embed(ctx, user, "kick")
+        await self.send_embed(ctx, user, "kick")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def punch(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def punch(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Punch a user!"""
-        await self.get_embed(ctx, user, "punch")
+        await self.send_embed(ctx, user, "punch")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def shoot(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def shoot(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Shoot a user!"""
-        await self.get_embed(ctx, user, "shoot")
+        await self.send_embed(ctx, user, "shoot")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def yeet(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def yeet(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Yeet a user far far away."""
-        await self.get_embed(ctx, user, "yeet")
+        await self.send_embed(ctx, user, "yeet")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def nod(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def nod(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Nods a user."""
-        await self.get_embed(ctx, user, "nod")
+        await self.send_embed(ctx, user, "nod")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def nope(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def nope(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Say nope to a user."""
-        await self.get_embed(ctx, user, "nope")
+        await self.send_embed(ctx, user, "nope")
 
-    @commands.command()
     @commands.bot_has_permissions(embed_links=True)
     @commands.cooldown(rate=1, per=3, type=commands.BucketType.user)
-    async def nom(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command()
+    async def nom(
+        self,
+        ctx: commands.Context,
+        user: Optional[Union[discord.Member, discord.User]] = None,
+    ):
         """Nom nom a user."""
-        await self.get_embed(ctx, user, "nom")
+        await self.send_embed(ctx, user, "nom")
