@@ -32,7 +32,7 @@ from redbot.core.bot import Red
 
 
 class GuessTheNumber(commands.Cog):
-    __version__ = "0.0.1"
+    __version__ = "0.6.1"
     __author__ = "Akai"
 
     def __init__(self, bot: Red):
