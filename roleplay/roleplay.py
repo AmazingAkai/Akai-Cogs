@@ -53,7 +53,7 @@ class RolePlay(commands.Cog):
             self.bot.add_command(self.original_hug_command)
         asyncio.create_task(self.session.close())
 
-    __version__ = "0.2"
+    __version__ = "0.3.0"
     __author__ = "MAX, Akai"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
