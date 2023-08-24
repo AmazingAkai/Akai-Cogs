@@ -36,7 +36,7 @@ class Messages:
             else self.queue
         )
 
-        for i, message in messages:
+        for i, message in enumerate(messages):
             if i == index:
                 return message
 
