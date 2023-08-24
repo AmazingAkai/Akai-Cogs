@@ -226,7 +226,7 @@ class Game:
 class GameStreams(commands.Cog):
     """Receive live announcements for new game streams."""
 
-    __version__ = "0.0.1"
+    __version__ = "0.5.1"
     __author__ = "Akai"
 
     def __init__(self, bot: Red) -> None:
