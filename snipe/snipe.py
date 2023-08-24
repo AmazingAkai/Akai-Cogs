@@ -110,7 +110,9 @@ class Snipe(commands.Cog):
             if len(message.content) < 4000
             else message.content[:4000] + "..."
         )
-        description = f"{content} ({message.created_at})"
+        description = (
+            f"{content} ({discord.utils.format_dt(message.created_at, style='R')})"
+        )
         embed = discord.Embed(
             description=description,
             colour=discord.Colour.dark_embed(),
