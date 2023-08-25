@@ -89,7 +89,7 @@ class Snipe(commands.Cog):
                 (discord.TextChannel, discord.Thread, discord.VoiceChannel),
             )
             or not before.content
-            or not before.content == after.content
+            or not before.content != after.content  # or before.content == after.content
             or not await self.is_toggled(before.guild)
         ):
             return
