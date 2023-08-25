@@ -111,7 +111,7 @@ class Snipe(commands.Cog):
         if ctx.invoked_subcommand is not None:
             return
 
-        if not self.is_toggled(ctx.guild):
+        if not await self.is_toggled(ctx.guild):
             return await ctx.send(
                 f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
                 mention_author=False,
@@ -167,7 +167,7 @@ class Snipe(commands.Cog):
     ):
         """Snipe all the deleted messages in the given channel."""
 
-        if not self.is_toggled(ctx.guild):
+        if not await self.is_toggled(ctx.guild):
             return await ctx.send(
                 f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
                 mention_author=False,
@@ -234,7 +234,7 @@ class Snipe(commands.Cog):
         if ctx.invoked_subcommand is not None:
             return
 
-        if not self.is_toggled(ctx.guild):
+        if not await self.is_toggled(ctx.guild):
             return await ctx.send(
                 f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
                 mention_author=False,
@@ -298,7 +298,7 @@ class Snipe(commands.Cog):
     ):
         """Snipe all the edited messages in the given channel."""
 
-        if not self.is_toggled(ctx.guild):
+        if not await self.is_toggled(ctx.guild):
             return await ctx.send(
                 f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
                 mention_author=False,
