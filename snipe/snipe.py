@@ -29,7 +29,7 @@ from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.utils.views import SimpleMenu
 
-from .cache import Messages
+from .cache import DeletedMessages, EditedMessage, EditedMessages
 
 MAX_SNIPE_SIZE = 100  # Only 100 messages are cached per channel.
 
@@ -46,7 +46,8 @@ class Snipe(commands.Cog):
         self.config = Config.get_conf(self, identifier=747403406154)
         self.bot = bot
         self.toggles: Dict[discord.Guild, bool] = {}
-        self.messages: Dict[SnipeableChannel, Messages] = {}
+        self.deleted_messages: Dict[SnipeableChannel, DeletedMessages] = {}
+        self.edited_messages: Dict[SnipeableChannel, EditedMessages] = {}
         self.config.register_guild(snipe=False)
 
     async def is_toggled(self, guild: discord.Guild) -> bool:
@@ -72,9 +73,30 @@ class Snipe(commands.Cog):
         ):
             return
 
-        self.messages.setdefault(message.channel, Messages(maxsize=MAX_SNIPE_SIZE)).add(
-            message
-        )
+        self.deleted_messages.setdefault(
+            message.channel, DeletedMessages(maxsize=MAX_SNIPE_SIZE)
+        ).add(message)
+
+    @commands.Cog.listener()
+    async def on_message_edit(
+        self, before: discord.Message, after: discord.Message
+    ) -> None:
+        if (
+            before.author.bot
+            or not before.guild
+            or not isinstance(
+                before.channel,
+                (discord.TextChannel, discord.Thread, discord.VoiceChannel),
+            )
+            or not before.content
+            or not before.content == after.content
+            or not await self.is_toggled(before.guild)
+        ):
+            return
+
+        self.edited_messages.setdefault(
+            before.channel, EditedMessages(maxsize=MAX_SNIPE_SIZE)
+        ).add(EditedMessage(before=before, after=after))
 
     @commands.guild_only()
     @commands.group(invoke_without_command=True, aliases=["sn"])
@@ -85,9 +107,15 @@ class Snipe(commands.Cog):
         channel: Optional[SnipeableChannel] = None,
         author: Optional[Union[discord.Member, discord.User]] = None,
     ):
-        """Snipe a message in the given channel."""
+        """Snipe a deleted message in the given channel."""
         if ctx.invoked_subcommand is not None:
             return
+
+        if not self.is_toggled(ctx.guild):
+            return await ctx.send(
+                f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
+                mention_author=False,
+            )
 
         if not isinstance(
             ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
@@ -98,7 +126,7 @@ class Snipe(commands.Cog):
 
         channel = ctx.channel if channel is None else channel
 
-        messages = self.messages.get(channel)
+        messages = self.deleted_messages.get(channel)
 
         if messages is None:
             return await ctx.reply("There's nothing to snipe!", mention_author=False)
@@ -120,7 +148,10 @@ class Snipe(commands.Cog):
             colour=discord.Colour.dark_embed(),
             timestamp=message.created_at,
         )
-        embed.set_thumbnail(url=ctx.author.display_avatar)
+        embed.set_footer(
+            text=f"Sniped by {ctx.author.display_name}",
+            icon_url=ctx.author.display_avatar,
+        )
         embed.set_author(
             name=message.author.display_name, icon_url=message.author.display_avatar
         )
@@ -136,8 +167,11 @@ class Snipe(commands.Cog):
     ):
         """Snipe all the deleted messages in the given channel."""
 
-        if ctx.invoked_subcommand is not None:
-            return
+        if not self.is_toggled(ctx.guild):
+            return await ctx.send(
+                f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
+                mention_author=False,
+            )
 
         if not isinstance(
             ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
@@ -148,7 +182,7 @@ class Snipe(commands.Cog):
 
         channel = ctx.channel if channel is None else channel
 
-        messages = self.messages.get(channel)
+        messages = self.deleted_messages.get(channel)
 
         if messages is None:
             return await ctx.reply("There's nothing to snipe!", mention_author=False)
@@ -160,7 +194,6 @@ class Snipe(commands.Cog):
         embeds: List[discord.Embed] = []
 
         for i, message in enumerate(filtered_messages):
-            embed = discord.Embed()
             content = (
                 message.content
                 if len(message.content) < 4000
@@ -174,13 +207,151 @@ class Snipe(commands.Cog):
                 colour=discord.Colour.dark_embed(),
                 timestamp=message.created_at,
             )
-            embed.set_thumbnail(url=ctx.author.display_avatar)
+
             embed.set_author(
                 name=message.author.display_name, icon_url=message.author.display_avatar
             )
             embed.set_footer(
-                text=f"Page {i + 1}/{len(filtered_messages)}",
-                icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
+                text=f"Sniped by {ctx.author.display_name} | Page {i + 1}/{len(filtered_messages)}",
+                icon_url=ctx.author.display_avatar,
+            )
+            embeds.append(embed)
+
+        pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
+
+        await pages.start(ctx)
+
+    @commands.guild_only()
+    @commands.group(invoke_without_command=True, aliases=["esnipe", "esn"])
+    async def editsnipe(
+        self,
+        ctx: commands.GuildContext,
+        index: int = 0,
+        channel: Optional[SnipeableChannel] = None,
+        author: Optional[Union[discord.Member, discord.User]] = None,
+    ):
+        """Snipe an edited message in the given channel."""
+        if ctx.invoked_subcommand is not None:
+            return
+
+        if not self.is_toggled(ctx.guild):
+            return await ctx.send(
+                f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
+                mention_author=False,
+            )
+
+        if not isinstance(
+            ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
+        ):
+            return await ctx.reply(
+                "You cannot snipe in this channel type.", mention_author=False
+            )
+
+        channel = ctx.channel if channel is None else channel
+
+        messages = self.edited_messages.get(channel)
+
+        if messages is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        message = messages.get(index, author)
+        if message is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        embed = discord.Embed(
+            colour=discord.Colour.dark_embed(),
+            timestamp=message.before.created_at,
+        )
+
+        embed.add_field(
+            name="Before",
+            value=message.before.content
+            if len(message.before.content) <= 1024
+            else message.before.content[:1021] + "...",
+            inline=False,
+        )
+        embed.add_field(
+            name="After",
+            value=message.after.content
+            if len(message.after.content) <= 1024
+            else message.after.content[:1021] + "...",
+            inline=False,
+        )
+
+        embed.set_footer(
+            text=f"Sniped by {ctx.author.display_name}",
+            icon_url=ctx.author.display_avatar,
+        )
+        embed.set_author(
+            name=message.before.author.display_name,
+            icon_url=message.before.author.display_avatar,
+        )
+        await ctx.reply(embed=embed, mention_author=False)
+
+    @commands.guild_only()
+    @editsnipe.command(name="bulk", aliases=["list"])
+    async def editsnipe_bulk(
+        self,
+        ctx: commands.GuildContext,
+        channel: Optional[SnipeableChannel] = None,
+        author: Optional[Union[discord.Member, discord.User]] = None,
+    ):
+        """Snipe all the edited messages in the given channel."""
+
+        if not self.is_toggled(ctx.guild):
+            return await ctx.send(
+                f"Sniping is disabled in this server. To enable sniping, run `{ctx.clean_prefix}snipeset toggle`.",
+                mention_author=False,
+            )
+
+        if not isinstance(
+            ctx.channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)
+        ):
+            return await ctx.reply(
+                "You cannot snipe in this channel type.", mention_author=False
+            )
+
+        channel = ctx.channel if channel is None else channel
+
+        messages = self.edited_messages.get(channel)
+
+        if messages is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        filtered_messages = messages.get_bulk(author)
+        if filtered_messages is None:
+            return await ctx.reply("There's nothing to snipe!", mention_author=False)
+
+        embeds: List[discord.Embed] = []
+
+        for i, message in enumerate(filtered_messages):
+            embed = discord.Embed(
+                colour=discord.Colour.dark_embed(),
+                timestamp=message.before.created_at,
+            )
+
+            embed.add_field(
+                name="Before",
+                value=message.before.content
+                if len(message.before.content) <= 1024
+                else message.before.content[:1021] + "...",
+                inline=False,
+            )
+            embed.add_field(
+                name="After",
+                value=message.after.content
+                if len(message.after.content) <= 1024
+                else message.after.content[:1021] + "...",
+                inline=False,
+            )
+
+            embed.set_author(
+                name=message.before.author.display_name,
+                icon_url=message.before.author.display_avatar,
+            )
+            embed.set_footer(
+                text=f"Sniped by {ctx.author.display_name} | Page {i + 1}/{len(filtered_messages)}",
+                icon_url=ctx.author.display_avatar,
             )
             embeds.append(embed)
 
