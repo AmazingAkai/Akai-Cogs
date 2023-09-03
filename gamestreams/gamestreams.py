@@ -400,7 +400,7 @@ class GameStreams(commands.Cog):
     async def gamestreams_youtube(self, ctx: commands.Context) -> None:
         """Command to announce game streams and search them on youtube."""
 
-    @gamestreams.command(name="search")
+    @gamestreams_youtube.command(name="search")
     @commands.guild_only()
     @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
     async def gamestreams_youtube_search(
