@@ -183,7 +183,7 @@ class GameStreams(commands.Cog):
             ) as response:
                 if response.status == 401:
                     raise FetchError(
-                        "Failed to fetch that game, make sure to set proper credentials. Check `[p]streamset twitchtoken` for more info."
+                        f"Failed to fetch that game, make sure to set proper credentials. Check `[p]streamset twitchtoken` for more info."
                     )
 
                 data = await response.json()
@@ -215,14 +215,14 @@ class GameStreams(commands.Cog):
         """Search ongoing streams for a game on Twitch."""
         if self.streams_cog is None:
             await ctx.send(
-                f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
+                f"Streams cog is currently not loaded. {f' You can load the cog using `{ctx.clean_prefix}load streams`' if await self.bot.is_owner(ctx.author) else ''}"
             )
             return
 
         headers = await self.fetch_twitch_game_headers()
         if headers is None:
             await ctx.send(
-                "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
+                f"The Twitch Client ID is not set. Please read `{ctx.clean_prefix}streamset twitchtoken`."
             )
             return
 
@@ -271,14 +271,14 @@ class GameStreams(commands.Cog):
         """Announce streams for a specific game."""
         if self.streams_cog is None:
             await ctx.send(
-                f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
+                f"Streams cog is currently not loaded. {f' You can load the cog using `{ctx.clean_prefix}load streams`' if await self.bot.is_owner(ctx.author) else ''}"
             )
             return
 
         headers = await self.fetch_twitch_game_headers()
         if headers is None:
             await ctx.send(
-                "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
+                f"The Twitch Client ID is not set. Please read `{ctx.clean_prefix}streamset twitchtoken`."
             )
             return
 
@@ -394,13 +394,15 @@ class GameStreams(commands.Cog):
         """Search ongoing streams for a game on Youtube."""
         if self.streams_cog is None:
             await ctx.send(
-                f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
+                f"Streams cog is currently not loaded. {f' You can load the cog using `{ctx.clean_prefix}load streams`' if await self.bot.is_owner(ctx.author) else ''}"
             )
             return
 
         api_key = (await self.bot.get_shared_api_tokens("youtube")).get("api_key")
         if api_key is None:
-            await ctx.send("Please set an api key using `[p]streamset youtubekey`.")
+            await ctx.send(
+                f"Please set an api key using `{ctx.clean_prefix}streamset youtubekey`."
+            )
             return
 
         async with ctx.typing():
