@@ -13,8 +13,8 @@ from redbot.cogs.streams.streamtypes import TWITCH_STREAMS_ENDPOINT, rnd
 from .exceptions import StreamFetchError
 
 
-class Stream:
-    def __init__(self, game: Game, data: dict) -> None:
+class TwitchStream:
+    def __init__(self, game: TwitchGame, data: dict) -> None:
         self.game = game
         self.data = data
 
@@ -40,7 +40,7 @@ class Stream:
     def __hash__(self) -> int:
         return hash(self.id)
 
-    def __eq__(self, other: Stream) -> bool:
+    def __eq__(self, other: TwitchStream) -> bool:
         return self.id == other.id
 
     def make_embed(self) -> discord.Embed:
@@ -75,7 +75,7 @@ class Stream:
         return embed
 
 
-class Game:
+class TwitchGame:
     _rate_limit_resets = set()
     _rate_limit_remaining = 800  # Assuming an initial limit of 800 requests per minute
 
@@ -90,7 +90,7 @@ class Game:
     def __hash__(self) -> int:
         return hash(self.id)
 
-    def __eq__(self, other: Game) -> bool:
+    def __eq__(self, other: TwitchGame) -> bool:
         return self.id == other.id
 
     async def wait_for_rate_limit_reset(self) -> None:
@@ -111,8 +111,8 @@ class Game:
                 wait_time = reset_time - current_time + 0.1
                 await asyncio.sleep(wait_time)
 
-    async def fetch_streams(self, cursor: Optional[str] = None) -> List[Stream]:
-        streams: List[Stream] = []
+    async def fetch_streams(self, cursor: Optional[str] = None) -> List[TwitchStream]:
+        streams: List[TwitchStream] = []
 
         await self.wait_for_rate_limit_reset()
 
@@ -142,7 +142,7 @@ class Game:
 
                 data = await response.json()
                 for stream_data in data.get("data", []):
-                    stream = Stream(self, stream_data)
+                    stream = TwitchStream(self, stream_data)
                     streams.append(stream)
 
                 # Check if there's more data to fetch
@@ -161,3 +161,65 @@ class Game:
                 self._rate_limit_resets.add(int(reset))
 
         return sorted(streams, key=lambda stream: stream.viewer_count, reverse=True)
+
+
+class YouTubeStream:
+    def __init__(self, data: dict):
+        self.video_id: str = data["id"]
+        self.title: str = data["snippet"]["title"]
+        self.channel_name: str = data["snippet"]["channelTitle"]
+        self.language: str = data["snippet"].get("defaultLanguage", "Unknown")
+        self.start_time: datetime.datetime = datetime.datetime.strptime(
+            data["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
+        )
+
+    def make_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title=self.title,
+            description=f"Live stream by **{self.channel_name}**",
+            url=f"https://www.youtube.com/watch?v={self.video_id}",
+            color=discord.Color.red(),
+        )
+
+        embed.add_field(name="Language", value=self.language, inline=False)
+        embed.add_field(
+            name="Start Time",
+            value=self.start_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
+            inline=False,
+        )
+
+        return embed
+
+    @staticmethod
+    async def fetch_streams_for_game(
+        headers: dict, game_name: str, max_results: int = 10
+    ) -> List["YouTubeStream"]:
+        base_url = "https://www.googleapis.com/youtube/v3/search"
+        params = {
+            "part": "snippet",
+            "eventType": "live",
+            "type": "video",
+            "maxResults": max_results,
+            "q": game_name,
+        }
+
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(base_url, params=params) as response:
+                if response.status != 200:
+                    raise Exception(
+                        f"Error {response.status} occurred while fetching YouTube streams."
+                    )
+
+                data = await response.json()
+                items = data.get("items", [])
+
+                live_streams: List[YouTubeStream] = []
+                for item in items:
+                    live_stream_data = {
+                        "id": item["id"]["videoId"],
+                        "snippet": item["snippet"],
+                    }
+                    live_stream = YouTubeStream(live_stream_data)
+                    live_streams.append(live_stream)
+
+                return live_streams

@@ -38,7 +38,7 @@ from redbot.core.bot import Red
 from redbot.core.utils.views import SimpleMenu
 
 from .exceptions import FetchError, GameNotFoundError, StreamFetchError
-from .utils import Game, Stream
+from .utils import TwitchGame, TwitchStream, YouTubeStream
 
 TWITCH_GAMES_ENDPOINT = TWITCH_BASE_URL + "/helix/games"
 
@@ -55,14 +55,14 @@ class GameStreams(commands.Cog):
     def __init__(self, bot: Red) -> None:
         self.bot = bot
 
-        self.games: Dict[str, Optional[Game]] = {}
+        self.twitch_games: Dict[str, Optional[TwitchGame]] = {}
 
         self.config = Config.get_conf(self, identifier=7474034061)
         self.config.register_global(alerts=[])
 
-        self.monitored_games: Dict[Game, List[Stream]] = {}
+        self.monitored_twitch_games: Dict[TwitchGame, List[TwitchStream]] = {}
 
-        self.check_streams.start()
+        self.check_twitch_streams.start()
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         """Thanks Sinbad!"""
@@ -74,9 +74,9 @@ class GameStreams(commands.Cog):
         return self.bot.get_cog("Streams")  # type: ignore
 
     def cog_unload(self):
-        self.check_streams.cancel()
+        self.check_twitch_streams.cancel()
 
-    async def fetch_game_headers(self):
+    async def fetch_twitch_game_headers(self):
         if not self.streams_cog:
             return None
 
@@ -98,30 +98,47 @@ class GameStreams(commands.Cog):
 
         return headers
 
+    async def fetch_youtube_game_headers(self):
+        if not self.streams_cog:
+            return None
+
+        api_key = (await self.bot.get_shared_api_tokens("youtube")).get("api_key")
+
+        if api_key is None:
+            return None
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+        }
+
+        return headers
+
     async def process_game_alert(
         self, game_alert: dict, headers: dict
-    ) -> Optional[Tuple[List[Stream], List[dict]]]:
+    ) -> Optional[Tuple[List[TwitchStream], List[dict]]]:
         game_name = game_alert["game"]
-        game = await self.fetch_game(game_name, headers=headers)
+        game = await self.fetch_twitch_game(game_name, headers=headers)
         alerts = game_alert["alerts"]
         streams = await game.fetch_streams()
 
-        if game in self.monitored_games.keys():
+        if game in self.monitored_twitch_games.keys():
             new_streams = [
-                stream for stream in streams if not stream in self.monitored_games[game]
+                stream
+                for stream in streams
+                if not stream in self.monitored_twitch_games[game]
             ]
-            self.monitored_games[game] = streams
+            self.monitored_twitch_games[game] = streams
             return new_streams, alerts
         else:
-            self.monitored_games[game] = streams
+            self.monitored_twitch_games[game] = streams
             return [], alerts
 
     @tasks.loop(minutes=5)
-    async def check_streams(self):
+    async def check_twitch_streams(self):
         if self.streams_cog is None:
             return
 
-        headers = await self.fetch_game_headers()
+        headers = await self.fetch_twitch_game_headers()
         if headers is None:
             return
 
@@ -157,17 +174,17 @@ class GameStreams(commands.Cog):
                         except Exception as error:
                             log.error(error)
 
-    @check_streams.before_loop
-    async def check_streams_before_loop(self):
+    @check_twitch_streams.before_loop
+    async def check_twitch_streams_before_loop(self):
         await self.bot.wait_until_ready()
 
-    @check_streams.error
-    async def check_streams_error(self, error: BaseException) -> None:
+    @check_twitch_streams.error
+    async def check_twitch_streams_error(self, error: BaseException) -> None:
         log.error("An error got raised while annoucing new streams: ", exc_info=error)
 
-    async def fetch_game(self, game_name: str, *, headers: dict) -> Game:
-        if game_name.lower() in self.games:
-            game = self.games[game_name.lower()]
+    async def fetch_twitch_game(self, game_name: str, *, headers: dict) -> TwitchGame:
+        if game_name.lower() in self.twitch_games:
+            game = self.twitch_games[game_name.lower()]
             if game is not None:
                 return game
 
@@ -187,11 +204,11 @@ class GameStreams(commands.Cog):
                 data = await response.json()
                 games_data = data["data"]
                 if not games_data:
-                    self.games[game_name.lower()] = None
+                    self.twitch_games[game_name.lower()] = None
                     raise GameNotFoundError("That game does not exist on Twitch.")
 
-                game = Game(games_data[0], headers=headers)
-                self.games[game_name.lower()] = game
+                game = TwitchGame(games_data[0], headers=headers)
+                self.twitch_games[game_name.lower()] = game
                 return game
 
     @commands.group(name="gamestreams", aliases=["gs", "gamestream"])
@@ -217,7 +234,7 @@ class GameStreams(commands.Cog):
             )
             return
 
-        headers = await self.fetch_game_headers()
+        headers = await self.fetch_twitch_game_headers()
         if headers is None:
             await ctx.send(
                 "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
@@ -225,7 +242,7 @@ class GameStreams(commands.Cog):
             return
 
         try:
-            game = await self.fetch_game(game_name, headers=headers)
+            game = await self.fetch_twitch_game(game_name, headers=headers)
         except Exception as error:
             await ctx.send(str(error))
             return
@@ -273,7 +290,7 @@ class GameStreams(commands.Cog):
             )
             return
 
-        headers = await self.fetch_game_headers()
+        headers = await self.fetch_twitch_game_headers()
         if headers is None:
             await ctx.send(
                 "The Twitch Client ID is not set. Please read `;streamset twitchtoken`."
@@ -287,7 +304,7 @@ class GameStreams(commands.Cog):
             channel = ctx.channel
 
         try:
-            game = await self.fetch_game(game_name, headers=headers)
+            game = await self.fetch_twitch_game(game_name, headers=headers)
         except Exception as error:
             await ctx.send(str(error))
             return
@@ -377,3 +394,51 @@ class GameStreams(commands.Cog):
             await pages.start(ctx)
         else:
             await ctx.send("No saved game alerts.")
+
+    @gamestreams.group(name="youtube", aliases=["yt"])
+    @commands.guild_only()
+    async def gamestreams_youtube(self, ctx: commands.Context) -> None:
+        """Command to announce game streams and search them on youtube."""
+
+    @gamestreams.command(name="search")
+    @commands.guild_only()
+    @commands.cooldown(rate=1, per=10, type=commands.BucketType.member)
+    async def gamestreams_youtube_search(
+        self, ctx: commands.GuildContext, *, game_name: str
+    ) -> None:
+        """Search ongoing streams for a game on Youtube."""
+        if self.streams_cog is None:
+            await ctx.send(
+                f"Streams cog is currently not loaded. {' You can load the cog using `[p]load streams`' if await self.bot.is_owner(ctx.author) else ''}"
+            )
+            return
+
+        headers = await self.fetch_youtube_game_headers()
+        if headers is None:
+            await ctx.send(
+                "The Youtube API Key is not set. Please read `;streamset youtubekey`."
+            )
+            return
+
+        async with ctx.typing():
+            streams = await YouTubeStream.fetch_streams_for_game(
+                headers, game_name=game_name, max_results=50
+            )
+
+            if not streams:
+                await ctx.send("No streams found for this game.")
+                return
+
+            embeds: List[discord.Embed] = []
+
+            for i, stream in enumerate(streams):
+                embed = stream.make_embed()
+                embed.set_footer(
+                    text=f"Page {i + 1}/{len(streams)}",
+                    icon_url=ctx.guild.icon or self.bot.user.display_avatar,  # type: ignore
+                )
+                embeds.append(embed)
+
+            pages = SimpleMenu(embeds, disable_after_timeout=True)  # type: ignore
+
+            await pages.start(ctx)
