@@ -202,8 +202,9 @@ class YouTubeStream:
             "q": game_name,
             "key": api_key,
             "maxResults": 50,
-            "pageToken": page_token,
         }
+        if page_token:
+            params["pageToken"] = page_token
 
         live_streams: List[YouTubeStream] = []
 
@@ -217,7 +218,6 @@ class YouTubeStream:
                             live_stream_data = {
                                 "id": item["id"]["videoId"],
                                 "snippet": item["snippet"],
-                                "statistics": {},  # You can update this with actual data.
                             }
                             live_stream = YouTubeStream(live_stream_data)
                             live_streams.append(live_stream)
