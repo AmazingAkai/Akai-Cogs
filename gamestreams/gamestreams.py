@@ -64,6 +64,11 @@ class GameStreams(commands.Cog):
 
         self.check_streams.start()
 
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
+
     @property
     def streams_cog(self) -> Optional[Streams]:
         return self.bot.get_cog("Streams")  # type: ignore

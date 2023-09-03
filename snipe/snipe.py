@@ -41,6 +41,7 @@ class Snipe(commands.Cog):
     """Snipe deleted and edited messages."""
 
     __version__ = "0.0.1"
+    __author__ = "Akai"
 
     def __init__(self, bot: Red):
         self.config = Config.get_conf(self, identifier=747403406154)
@@ -49,6 +50,11 @@ class Snipe(commands.Cog):
         self.deleted_messages: Dict[SnipeableChannel, DeletedMessages] = {}
         self.edited_messages: Dict[SnipeableChannel, EditedMessages] = {}
         self.config.register_guild(snipe=False)
+
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     async def is_toggled(self, guild: discord.Guild) -> bool:
         toggle = self.toggles.get(guild)

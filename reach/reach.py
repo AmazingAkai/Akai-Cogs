@@ -32,6 +32,7 @@ class Reach(commands.Cog):
     """Shows the reach of roles in a channel"""
 
     __version__ = "1.0.0"
+    __author__ = "Akai"
 
     def __init__(self, bot):
         self.config = Config.get_conf(self, identifier=696969696969)
@@ -40,6 +41,11 @@ class Reach(commands.Cog):
             "arrow": "➡️",
         }
         self.config.register_global(**default_global)
+
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     @commands.hybrid_group(invoke_without_command=True)
     @commands.guild_only()

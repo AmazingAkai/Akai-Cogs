@@ -34,6 +34,7 @@ class AwayFromKeyboard(commands.Cog):
     """Make the bot send a message whenever you are away from the keyboard."""
 
     __version__ = "1.1.0"
+    __author__ = "Akai"
 
     def __init__(self, bot):
         self.bot = bot
@@ -56,6 +57,11 @@ class AwayFromKeyboard(commands.Cog):
         }
 
         self.config.register_guild(**default_guild)
+
+    def format_help_for_context(self, ctx: commands.Context) -> str:
+        """Thanks Sinbad!"""
+        pre_processed = super().format_help_for_context(ctx)
+        return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     async def add_afk_to_nickname(self, member: discord.Member) -> None:
         name = member.display_name
