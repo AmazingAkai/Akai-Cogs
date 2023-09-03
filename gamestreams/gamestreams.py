@@ -98,21 +98,6 @@ class GameStreams(commands.Cog):
 
         return headers
 
-    async def fetch_youtube_game_headers(self):
-        if not self.streams_cog:
-            return None
-
-        api_key = (await self.bot.get_shared_api_tokens("youtube")).get("api_key")
-
-        if api_key is None:
-            return None
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-        }
-
-        return headers
-
     async def process_game_alert(
         self, game_alert: dict, headers: dict
     ) -> Optional[Tuple[List[TwitchStream], List[dict]]]:
@@ -413,16 +398,14 @@ class GameStreams(commands.Cog):
             )
             return
 
-        headers = await self.fetch_youtube_game_headers()
-        if headers is None:
-            await ctx.send(
-                "The Youtube API Key is not set. Please read `;streamset youtubekey`."
-            )
+        api_key = (await self.bot.get_shared_api_tokens("youtube")).get("api_key")
+        if api_key is None:
+            await ctx.send("Please set an api key using `[p]streamset youtubekey`.")
             return
 
         async with ctx.typing():
             streams = await YouTubeStream.fetch_streams_for_game(
-                headers, game_name=game_name, max_results=50
+                api_key=api_key, game_name=game_name
             )
 
             if not streams:

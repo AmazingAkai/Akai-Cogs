@@ -192,34 +192,46 @@ class YouTubeStream:
 
     @staticmethod
     async def fetch_streams_for_game(
-        headers: dict, game_name: str, max_results: int = 10
-    ) -> List["YouTubeStream"]:
-        base_url = "https://www.googleapis.com/youtube/v3/search"
+        api_key: str, game_name: str, page_token: Optional[str] = None
+    ) -> List[YouTubeStream]:
+        url = "https://www.googleapis.com/youtube/v3/search"
         params = {
             "part": "snippet",
             "eventType": "live",
             "type": "video",
-            "maxResults": max_results,
             "q": game_name,
+            "key": api_key,
+            "maxResults": 50,
+            "pageToken": page_token,
         }
 
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(base_url, params=params) as response:
-                if response.status != 200:
-                    raise Exception(
-                        f"Error {response.status} occurred while fetching YouTube streams."
-                    )
+        live_streams: List[YouTubeStream] = []
 
-                data = await response.json()
-                items = data.get("items", [])
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params) as response:
+                    response.raise_for_status()
+                    response_json = await response.json()
+                    if "items" in response_json:
+                        for item in response_json["items"]:
+                            live_stream_data = {
+                                "id": item["id"]["videoId"],
+                                "snippet": item["snippet"],
+                                "statistics": {},  # You can update this with actual data.
+                            }
+                            live_stream = YouTubeStream(live_stream_data)
+                            live_streams.append(live_stream)
 
-                live_streams: List[YouTubeStream] = []
-                for item in items:
-                    live_stream_data = {
-                        "id": item["id"]["videoId"],
-                        "snippet": item["snippet"],
-                    }
-                    live_stream = YouTubeStream(live_stream_data)
-                    live_streams.append(live_stream)
+                    # Check if there's a next page
+                    if "nextPageToken" in response_json:
+                        next_page_token = response_json["nextPageToken"]
+                        # Recursively call the function to fetch the next page
+                        more_streams = await YouTubeStream.fetch_streams_for_game(
+                            api_key, game_name, page_token=next_page_token
+                        )
+                        live_streams.extend(more_streams)
 
-                return live_streams
+        except aiohttp.ClientError as e:
+            print("Error:", e)
+
+        return live_streams
