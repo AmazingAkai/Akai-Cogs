@@ -168,7 +168,7 @@ class YouTubeStream:
         self.video_id: str = data["id"]
         self.title: str = data["snippet"]["title"]
         self.channel_name: str = data["snippet"]["channelTitle"]
-        self.thumbnail_url: str = data["snippet"]["thumbnails"]["high"]["url"]
+        self.thumbnail_url: str = data["snippet"]["thumbnails"]["meduim"]["url"]
         self.start_time: datetime.datetime = datetime.datetime.strptime(
             data["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
         )
