@@ -168,7 +168,9 @@ class YouTubeStream:
         self.video_id: str = data["id"]
         self.title: str = data["snippet"]["title"]
         self.channel_name: str = data["snippet"]["channelTitle"]
-        self.thumbnail_url: str = data["snippet"]["thumbnails"]["meduim"]["url"]
+        self.thumbnail_url: Optional[str] = None
+        if thumbnails := data["snippet"].get("thumbnails"):
+            self.thumbnail_url = thumbnails["medium"]["url"]
         self.start_time: datetime.datetime = datetime.datetime.strptime(
             data["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -180,8 +182,8 @@ class YouTubeStream:
             url=f"https://www.youtube.com/watch?v={self.video_id}",
             color=discord.Color.red(),
         )
-
-        embed.set_image(url=rnd(self.thumbnail_url))
+        if self.thumbnail_url:
+            embed.set_image(url=rnd(self.thumbnail_url))
         embed.add_field(
             name="Start Time",
             value=self.start_time.strftime("%Y-%m-%d %H:%M:%S UTC"),
