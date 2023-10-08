@@ -24,10 +24,20 @@ SOFTWARE.
 
 import asyncio
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import discord
 from redbot.core import Config, commands
+
+MessageableChannel = Union[
+    discord.TextChannel,
+    discord.VoiceChannel,
+    discord.StageChannel,
+    discord.Thread,
+    discord.DMChannel,
+    discord.PartialMessageable,
+    discord.GroupChannel,
+]
 
 
 class AwayFromKeyboard(commands.Cog):
@@ -82,7 +92,7 @@ class AwayFromKeyboard(commands.Cog):
                 pass
 
     async def remove_afk(
-        self, channel: discord.abc.MessageableChannel, member: discord.Member
+        self, channel: MessageableChannel, member: discord.Member
     ) -> None:
         mentions = await self.config.member(member).mentions()
         chunks = discord.utils.as_chunks(mentions, 15)
