@@ -47,7 +47,7 @@ class Stream:
         embed.add_field(name="Uploader", value=self.uploader, inline=True)
         embed.add_field(
             name="View Count",
-            value=self.view_count if self.view_count else "Not available",
+            value=f"{int(self.view_count): ,}" if self.view_count else "Not available",
             inline=True,
         )
         embed.add_field(
