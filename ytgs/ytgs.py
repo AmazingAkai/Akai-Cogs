@@ -105,7 +105,7 @@ class YTGS(commands.Cog):
             try:
                 info = await asyncio.to_thread(
                     ydl.extract_info,
-                    url=f"https://www.youtube.com/channel/{channel_id}",
+                    url=f"https://www.youtube.com/channel/{channel_id}/live",
                     download=False,
                 )
                 if isinstance(info, dict) and "entries" in info:
