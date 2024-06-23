@@ -48,32 +48,32 @@ class Screenshot(commands.Cog):
     @commands.hybrid_command(name="screenshot", aliases=["ss"])
     @app_commands.describe(
         site="The URL of the website to take a screenshot of.",
-        width="Thumbnail width in pixels. Default: 600.",
-        crop="Height of the original screenshot in pixels. Default: 1200.",
-        max_age="Refresh the thumbnail if the cached image is older than this amount, in hours. Default: 12.",
-        wait="Wait for the specified number of seconds after the webpage has loaded before taking a screenshot. Default: 0.",
-        viewport_width="Set the viewportWidth of the browser. Maximum value is 2400. Default: 1200.",
+        width="Thumbnail width in pixels.",
+        crop="Height of the original screenshot in pixels.",
+        max_age="Refresh the thumbnail if the cached image is older than this amount, in hours.",
+        wait="Wait for the specified number of seconds after the webpage has loaded before taking a screenshot.",
+        viewport_width="Set the viewportWidth of the browser. Maximum value is 2400.",
     )
     async def screenshot(
         self,
         ctx: commands.Context,
         site: str,
-        width: int = 600,
-        crop: int = 1200,
-        max_age: Optional[int] = 12,
-        wait: Optional[int] = 0,
-        viewport_width: int = 1200,
+        width: Optional[int] = None,
+        crop: Optional[int] = None,
+        viewport_width: Optional[int] = None,
+        max_age: Optional[int] = None,
+        wait: Optional[int] = None,
     ) -> None:
         """
         Capture a screenshot of a website.
 
         Parameters:
         - site: The URL of the website to take a screenshot of.
-        - width: Thumbnail width in pixels. Default: 600.
-        - crop: Height of the original screenshot in pixels. Default: 1200.
-        - max_age: Refresh the thumbnail if the cached image is older than this amount, in hours. Default: 12.
-        - wait: Wait for the specified number of seconds after the webpage has loaded before taking a screenshot. Default: 0.
-        - viewport_width: Set the viewportWidth of the browser. Maximum value is 2400. Default: 1200.
+        - width: Thumbnail width in pixels.
+        - crop: Height of the original screenshot in pixels.
+        - max_age: Refresh the thumbnail if the cached image is older than this amount, in hours.
+        - wait: Wait for the specified number of seconds after the webpage has loaded before taking a screenshot.
+        - viewport_width: Set the viewportWidth of the browser. Maximum value is 2400.
         """
         parsed_url = urlparse(site)
 
@@ -81,15 +81,18 @@ class Screenshot(commands.Cog):
             await ctx.send("Invalid URL. Please provide a valid URL.")
             return
 
-        url = (
-            "https://image.thum.io/get/"
-            f"width/{width}/"
-            f"crop/{crop}/"
-            f"maxAge/{max_age}/"
-            f"wait/{wait}/"
-            f"viewportWidth/{viewport_width}/"
-            f"{site}"
-        )
+        url = "https://image.thum.io/get/"
+        if width:
+            url += f"width/{width}/"
+        if crop:
+            url += f"crop/{crop}/"
+        if max_age:
+            url += f"maxAge/{max_age}/"
+        if wait:
+            url += f"wait/{wait}/"
+        if viewport_width:
+            url += f"viewportWidth/{viewport_width}/"
+        url += f"{site}"
 
         color = await ctx.bot.get_embed_color(ctx)
 
