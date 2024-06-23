@@ -15,11 +15,11 @@ class HeistLock(commands.Cog):
     @commands.has_permissions(manage_guild=True)
     @commands.bot_has_permissions(manage_channels=True)
     @commands.max_concurrency(1, per=commands.BucketType.guild)
+    @commands.hybrid_command(aliases=["hstart", "heiststart", "hlock"])
     @app_commands.describe(
         roles="The roles for which command will unlock the channel.",
         members_role="The role for which command will lock the channel, defaults to '@everyone'.",
     )
-    @commands.hybrid_command(aliases=["hstart", "heiststart", "hlock"])
     async def heistlock(
         self,
         ctx: commands.Context,
