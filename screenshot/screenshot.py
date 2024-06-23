@@ -25,6 +25,7 @@ SOFTWARE.
 from typing import Optional
 from urllib.parse import urlparse
 
+import io
 import aiohttp
 import discord
 from redbot.core import app_commands, commands
@@ -99,10 +100,13 @@ class Screenshot(commands.Cog):
         url += f"{site}"
 
         async with self.session.get(url) as response:
-            fp = await response.read()
+            image = await response.read()
+
+        fp = io.BytesIO(image)
 
         color = await ctx.bot.get_embed_color(ctx)
         file = discord.File(fp, filename="screenshot.png")
+
         embed = discord.Embed(
             title=site,
             url=site,
@@ -110,4 +114,5 @@ class Screenshot(commands.Cog):
         )
         embed.set_image(url="attachment://screenshot.png")
 
+        fp.close()
         await ctx.send(embed=embed, file=file)
