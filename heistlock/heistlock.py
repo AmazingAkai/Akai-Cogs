@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Sequence
+from typing import Dict, Optional, Sequence
 
 import discord
 from redbot.core import app_commands, commands
@@ -66,7 +66,7 @@ class HeistLock(commands.Cog):
         except asyncio.TimeoutError:
             return await ctx.send("Timed out waiting for heist start message.")
 
-        await self.update_channel(ctx, roles, members_role, start=True)
+        before = await self.update_channel(ctx, roles, members_role)
 
         embed = discord.Embed(
             title="Heist Started",
@@ -80,7 +80,7 @@ class HeistLock(commands.Cog):
 
         await asyncio.sleep(95)  # Heist ends in ~95 seconds.
 
-        await self.update_channel(ctx, roles, members_role, start=False)
+        await self.update_channel(ctx, roles, members_role, before=before)
 
         embed = discord.Embed(
             title="Heist Ended",
@@ -97,15 +97,21 @@ class HeistLock(commands.Cog):
         ctx: commands.Context,
         roles: Sequence[discord.Role],
         members_role: discord.Role,
-        start: bool,
-    ):
+        before: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+    ) -> Dict[discord.Role, discord.PermissionOverwrite]:
         assert isinstance(ctx.channel, discord.TextChannel)
 
+        ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
+
         overwrites = ctx.channel.overwrites_for(members_role)
-        overwrites.view_channel = start
+        ret[members_role] = overwrites
+        overwrites.view_channel = before[members_role].view_channel if before else False
         await ctx.channel.set_permissions(members_role, overwrite=overwrites)
 
         for role in roles:
             overwrites = ctx.channel.overwrites_for(role)
-            overwrites.view_channel = not start
+            ret[role] = overwrites
+            overwrites.view_channel = before[role].view_channel if before else True
             await ctx.channel.set_permissions(role, overwrite=overwrites)
+
+        return ret
