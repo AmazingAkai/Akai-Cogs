@@ -25,7 +25,7 @@ SOFTWARE.
 from typing import Optional
 from urllib.parse import urlparse
 
-
+import aiohttp
 import discord
 from redbot.core import app_commands, commands
 from redbot.core.bot import Red
@@ -39,11 +39,15 @@ class Screenshot(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
+        self.session = aiohttp.ClientSession()
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         """Thanks Sinbad!"""
         pre_processed = super().format_help_for_context(ctx)
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
+
+    async def cog_unload(self) -> None:
+        await self.session.close()
 
     @commands.hybrid_command(name="screenshot", aliases=["ss"])
     @app_commands.describe(
@@ -94,6 +98,11 @@ class Screenshot(commands.Cog):
             url += f"viewportWidth/{viewport_width}/"
         url += f"{site}"
 
+        async with self.session.get(url) as response:
+            fp = await response.read()
+
+        file = discord.File(fp, filename="screenshot.png")
+
         color = await ctx.bot.get_embed_color(ctx)
 
         embed = discord.Embed(
@@ -101,6 +110,6 @@ class Screenshot(commands.Cog):
             url=site,
             color=color,
         )
-        embed.set_image(url=url)
+        embed.set_image(url="attachment://screenshot.png")
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, file=file)
