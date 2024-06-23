@@ -101,10 +101,8 @@ class Screenshot(commands.Cog):
         async with self.session.get(url) as response:
             fp = await response.read()
 
-        file = discord.File(fp, filename="screenshot.png")
-
         color = await ctx.bot.get_embed_color(ctx)
-
+        file = discord.File(fp, filename="screenshot.png")
         embed = discord.Embed(
             title=site,
             url=site,
