@@ -99,7 +99,7 @@ class Screenshot(commands.Cog):
             url += f"viewportWidth/{viewport_width}/"
         url += f"{site}"
 
-        async with self.session.get(url) as response:
+        async with ctx.typing(), self.session.get(url) as response:
             image = await response.read()
 
         fp = io.BytesIO(image)
