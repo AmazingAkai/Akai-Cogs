@@ -45,8 +45,6 @@ class HeistLock(commands.Cog):
             description="Please run the heist command in this channel.",
             color=color,
         )
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
 
         await ctx.send(embed=embed)
 
@@ -73,8 +71,6 @@ class HeistLock(commands.Cog):
             description="The heist has started. Channel has been unlocked for given roles.",
             color=color,
         )
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
 
         await ctx.send(embed=embed)
 
@@ -87,8 +83,6 @@ class HeistLock(commands.Cog):
             description="The heist has ended. Channel permissions have been reset.",
             color=color,
         )
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
 
         await ctx.send(embed=embed)
 
