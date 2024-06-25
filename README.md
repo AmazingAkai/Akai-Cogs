@@ -64,7 +64,7 @@ To add the cogs to your instance please do: `[p]repo add akai-cogs https://githu
     </tr>
     <tr>
       <td>Screenshot</td>
-      <td>0.0.3</td>
+      <td>0.1.0</td>
       <td>
         <details>
           <summary>Capture screenshots of websites.</summary>

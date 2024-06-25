@@ -24,6 +24,7 @@ SOFTWARE.
 
 import asyncio
 import io
+import time
 from urllib.parse import urlparse
 
 import discord
@@ -36,12 +37,13 @@ from webdriver_manager.firefox import GeckoDriverManager
 OPTIONS = options.Options()
 OPTIONS.add_argument("--headless")
 OPTIONS.add_argument("--window-size=1280x1024")
+OPTIONS.add_argument("--hide-scrollbars")
 
 
 class Screenshot(commands.Cog):
     """Capture screenshots of websites."""
 
-    __version__ = "0.0.3"
+    __version__ = "0.1.0"
     __author__ = "Akai"
 
     def __init__(self, bot: Red) -> None:
@@ -61,6 +63,7 @@ class Screenshot(commands.Cog):
 
     def get_screenshot(self, url: str) -> discord.File:
         self.driver.get(url)
+        time.sleep(1)
         png = self.driver.get_screenshot_as_png()
 
         with io.BytesIO(png) as image:
