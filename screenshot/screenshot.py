@@ -22,14 +22,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Optional
+import asyncio
+import io
 from urllib.parse import urlparse
 
-import io
-import aiohttp
 import discord
 from redbot.core import app_commands, commands
 from redbot.core.bot import Red
+from selenium import webdriver
+from selenium.webdriver.firefox import options, service
+from webdriver_manager.firefox import GeckoDriverManager
+
+OPTIONS = options.Options()
+OPTIONS.add_argument("--headless")
+OPTIONS.add_argument("--window-size=1280x1024")
 
 
 class Screenshot(commands.Cog):
@@ -40,7 +46,10 @@ class Screenshot(commands.Cog):
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
-        self.session = aiohttp.ClientSession()
+        self.driver = webdriver.Firefox(
+            service=service.Service(executable_path=GeckoDriverManager().install()),
+            options=OPTIONS,
+        )
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         """Thanks Sinbad!"""
@@ -48,64 +57,44 @@ class Screenshot(commands.Cog):
         return f"{pre_processed}\n\nAuthor: {self.__author__}\nCog Version: {self.__version__}"
 
     async def cog_unload(self) -> None:
-        await self.session.close()
+        self.driver.quit()
 
+    def get_screenshot(self, url: str) -> discord.File:
+        self.driver.get(url)
+        png = self.driver.get_screenshot_as_png()
+
+        with io.BytesIO(png) as image:
+            return discord.File(image, filename="screenshot.png")
+
+    @commands.is_owner()
     @commands.hybrid_command(name="screenshot", aliases=["ss"])
     @app_commands.describe(
         site="The URL of the website to take a screenshot of.",
-        width="Thumbnail width in pixels.",
-        crop="Height of the original screenshot in pixels.",
-        max_age="Refresh the thumbnail if the cached image is older than this amount, in hours.",
-        wait="Wait for the specified number of seconds after the webpage has loaded before taking a screenshot.",
-        viewport_width="Set the viewportWidth of the browser. Maximum value is 2400.",
     )
     async def screenshot(
         self,
         ctx: commands.Context,
         site: str,
-        width: Optional[int] = None,
-        crop: Optional[int] = None,
-        viewport_width: Optional[int] = None,
-        max_age: Optional[int] = None,
-        wait: Optional[int] = None,
     ) -> None:
         """
         Capture a screenshot of a website.
 
         Parameters:
         - site: The URL of the website to take a screenshot of.
-        - width: Thumbnail width in pixels.
-        - crop: Height of the original screenshot in pixels.
-        - max_age: Refresh the thumbnail if the cached image is older than this amount, in hours.
-        - wait: Wait for the specified number of seconds after the webpage has loaded before taking a screenshot.
-        - viewport_width: Set the viewportWidth of the browser. Maximum value is 2400.
         """
         parsed_url = urlparse(site)
 
         if not all([parsed_url.scheme, parsed_url.netloc]):
             await ctx.send("Invalid URL. Please provide a valid URL.")
             return
+        elif parsed_url.scheme != "https":
+            await ctx.send("Invalid URL. Please provide a secure URL.")
+            return
 
-        url = "https://image.thum.io/get/"
-        if width:
-            url += f"width/{width}/"
-        if crop:
-            url += f"crop/{crop}/"
-        if max_age:
-            url += f"maxAge/{max_age}/"
-        if wait:
-            url += f"wait/{wait}/"
-        if viewport_width:
-            url += f"viewportWidth/{viewport_width}/"
-        url += f"{site}"
-
-        async with ctx.typing(), self.session.get(url) as response:
-            image = await response.read()
-
-        fp = io.BytesIO(image)
+        async with ctx.typing():
+            file = await asyncio.to_thread(self.get_screenshot, url=site)
 
         color = await ctx.bot.get_embed_color(ctx)
-        file = discord.File(fp, filename="screenshot.png")
 
         embed = discord.Embed(
             title=site,
@@ -114,5 +103,4 @@ class Screenshot(commands.Cog):
         )
         embed.set_image(url="attachment://screenshot.png")
 
-        fp.close()
         await ctx.send(embed=embed, file=file)

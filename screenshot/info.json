@@ -15,6 +15,7 @@
   "permissions": [
     "embed_links"
   ],
+  "requirements": ["selenium", "webdriver-manager"],
   "end_user_data_statement": "This cog does not store any End User Data.",
   "type": "COG"
 }
