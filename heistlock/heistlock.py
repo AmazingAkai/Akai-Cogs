@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from typing import Dict, Optional, Sequence
 
 import discord
@@ -98,13 +99,13 @@ class HeistLock(commands.Cog):
         ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
 
         overwrites = ctx.channel.overwrites_for(members_role)
-        ret[members_role] = overwrites
+        ret[members_role] = copy.deepcopy(overwrites)
         overwrites.view_channel = before[members_role].view_channel if before else False
         await ctx.channel.set_permissions(members_role, overwrite=overwrites)
 
         for role in roles:
             overwrites = ctx.channel.overwrites_for(role)
-            ret[role] = overwrites
+            ret[role] = copy.deepcopy(overwrites)
             overwrites.view_channel = before[role].view_channel if before else True
             await ctx.channel.set_permissions(role, overwrite=overwrites)
 
