@@ -32,10 +32,6 @@ class HeistLockFlags(commands.FlagConverter, prefix="--", delimiter=" "):
         description="Role for which command will viewlock the channel, defaults to '@everyone'.",
         default=None,
     )
-    viewlock_before_start: bool = commands.flag(
-        description="Whether to viewlock the channel before heist start, defaults to 'False'.",
-        default=False,
-    )
 
 
 class HeistLock(commands.Cog):
@@ -52,7 +48,6 @@ class HeistLock(commands.Cog):
         **Flags:**
         `--roles`: Roles for which command will unviewlock the channel.
         `--members_role`: Role for which command will viewlock the channel, defaults to '@everyone'.
-        `--viewlock_before_start`: Whether to viewlock the channel before heist start, defaults to 'False'.
         """
 
         if not isinstance(ctx.channel, discord.TextChannel):
@@ -67,21 +62,12 @@ class HeistLock(commands.Cog):
         members_role = flags.members_role or ctx.guild.default_role
         color = await ctx.bot.get_embed_color(ctx)
 
-        if flags.viewlock_before_start:
-            embed = discord.Embed(
-                title="Heist Start",
-                description="Please run the heist command in this channel. "
-                f"The channel has been viewlocked for {', '.join(role.mention for role in flags.roles)}.",
-                color=color,
-            )
-
-        else:
-            embed = discord.Embed(
-                title="Listening for Heist Start",
-                description="Please run the heist command in this channel. "
-                f"The channel will be unviewlocked for {', '.join(role.mention for role in flags.roles)}.",
-                color=color,
-            )
+        embed = discord.Embed(
+            title="Listening for Heist Start",
+            description="Please run the heist command in this channel. "
+            f"The channel will be unviewlocked for {', '.join(role.mention for role in flags.roles)}.",
+            color=color,
+        )
 
         await ctx.send(embed=embed)
 
@@ -107,13 +93,10 @@ class HeistLock(commands.Cog):
                 and message.channel.id == ctx.channel.id
             )
 
-        if not flags.viewlock_before_start:
-            try:
-                await self.bot.wait_for(
-                    "message", check=is_heiststart_message, timeout=60
-                )
-            except asyncio.TimeoutError:
-                return await ctx.send("Timed out waiting for heist start message.")
+        try:
+            await self.bot.wait_for("message", check=is_heiststart_message, timeout=60)
+        except asyncio.TimeoutError:
+            return await ctx.send("Timed out waiting for heist start message.")
 
         before = await self.update_channel(ctx, flags.roles, members_role)
 
