@@ -3,10 +3,27 @@ import copy
 from typing import Dict, Optional, Sequence
 
 import discord
-from redbot.core import app_commands, commands
+from redbot.core import commands
 from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import bold
 
 DANK_MEMER_ID = 270904126974590976
+
+
+class HeistLockFlags(commands.FlagConverter, prefix="--", delimiter=" "):
+    roles: tuple[discord.Role, ...] = commands.flag(
+        description="Roles for which command will unviewlock the channel."
+    )
+    members_role: discord.Role | None = commands.flag(
+        description="Role for which command will lock the channel, defaults to '@everyone'.",
+        default=None,
+        aliases=["members-role"],
+    )
+    viewlock_before_start: bool = commands.flag(
+        description="Whether to viewlock the channel before heist start, defaults to 'False'.",
+        default=False,
+        aliases=["viewlock-before-start"],
+    )
 
 
 class HeistLock(commands.Cog):
@@ -17,35 +34,36 @@ class HeistLock(commands.Cog):
     @commands.bot_has_permissions(manage_channels=True)
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.hybrid_command(aliases=["hstart", "heiststart", "hlock"])
-    @app_commands.describe(
-        roles="The roles for which command will unlock the channel.",
-        members_role="The role for which command will lock the channel, defaults to '@everyone'.",
-    )
-    async def heistlock(
-        self,
-        ctx: commands.Context,
-        roles: commands.Greedy[discord.Role],
-        members_role: Optional[discord.Role] = None,
-    ):
-        """This command will unlock the channel for the given roles on starting heist."""
+    async def heistlock(self, ctx: commands.Context, *, flags: HeistLockFlags):
+        """This command will unviewlock the channel for the given roles on starting heist."""
 
         if not isinstance(ctx.channel, discord.TextChannel):
             return await ctx.send("This command can only be used in text channels.")
-        if not roles:
+        if not flags.roles:
             return await ctx.send("Please mention atleast one role.")
-        if len(roles) > 5:
+        if len(flags.roles) > 5:
             return await ctx.send("Please mention no more than 5 roles.")
 
         assert ctx.guild is not None
 
-        members_role = members_role or ctx.guild.default_role
+        members_role = flags.members_role or ctx.guild.default_role
         color = await ctx.bot.get_embed_color(ctx)
 
-        embed = discord.Embed(
-            title="Listening for Heist Start",
-            description="Please run the heist command in this channel.",
-            color=color,
-        )
+        if flags.viewlock_before_start:
+            embed = discord.Embed(
+                title="Heist Start",
+                description="Please run the heist command in this channel. "
+                f"The channel has been viewlocked for {', '.join(role.mention for role in flags.roles)}.",
+                color=color,
+            )
+
+        else:
+            embed = discord.Embed(
+                title="Listening for Heist Start",
+                description="Please run the heist command in this channel. "
+                f"The channel will be unviewlocked for {', '.join(role.mention for role in flags.roles)}.",
+                color=color,
+            )
 
         await ctx.send(embed=embed)
 
@@ -54,30 +72,48 @@ class HeistLock(commands.Cog):
                 bool(message.embeds)
                 and bool(message.embeds[0].description)
                 and message.embeds[0].description.startswith(
-                    "They're trying to break into **server**'s bank!"
+                    f"They're trying to break into {bold('server')}'s bank!"
                 )
                 and message.author.id == DANK_MEMER_ID
                 and message.channel.id == ctx.channel.id
             )
 
-        try:
-            await self.bot.wait_for("message", check=is_heiststart_message, timeout=60)
-        except asyncio.TimeoutError:
-            return await ctx.send("Timed out waiting for heist start message.")
+        def is_heistend_message(message: discord.Message) -> bool:
+            return (
+                bool(message.embeds)
+                and bool(message.embeds[0].description)
+                and message.embeds[0].description.startswith(
+                    "Amazing job everybody, we racked up a total of"
+                )
+                and message.author.id == DANK_MEMER_ID
+                and message.channel.id == ctx.channel.id
+            )
 
-        before = await self.update_channel(ctx, roles, members_role)
+        if not flags.viewlock_before_start:
+            try:
+                await self.bot.wait_for(
+                    "message", check=is_heiststart_message, timeout=60
+                )
+            except asyncio.TimeoutError:
+                return await ctx.send("Timed out waiting for heist start message.")
+
+        before = await self.update_channel(ctx, flags.roles, members_role)
 
         embed = discord.Embed(
             title="Heist Started",
-            description="The heist has started. Channel has been unlocked for given roles.",
+            description="The heist has started. Channel has been unviewlocked "
+            f"for {', '.join(role.mention for role in flags.roles)}.",
             color=color,
         )
 
         await ctx.send(embed=embed)
 
-        await asyncio.sleep(95)  # Heist ends in ~95 seconds.
-
-        await self.update_channel(ctx, roles, members_role, before=before)
+        try:
+            await self.bot.wait_for("message", check=is_heistend_message, timeout=300)
+        except asyncio.TimeoutError:
+            return await ctx.send("Timed out waiting for heist end message.")
+        finally:
+            await self.update_channel(ctx, flags.roles, members_role, before=before)
 
         embed = discord.Embed(
             title="Heist Ended",
