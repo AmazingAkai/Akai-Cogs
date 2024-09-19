@@ -1,11 +1,20 @@
+from __future__ import annotations
+
 import asyncio
 import copy
-from typing import Dict, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence
 
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import bold
+
+if TYPE_CHECKING:
+    from typing import Dict, Union
+
+    CHANNEL_OVERWRITES = Dict[
+        Union[discord.Member, discord.Role, discord.Object], discord.PermissionOverwrite
+    ]
 
 DANK_MEMER_ID = 270904126974590976
 
@@ -118,7 +127,9 @@ class HeistLock(commands.Cog):
         except asyncio.TimeoutError:
             return await ctx.send("Timed out waiting for heist end message.")
         finally:
-            await self.update_channel(ctx, flags.roles, members_role, before=before)
+            await ctx.channel.edit(
+                overwrites=before, reason="Heist lock over. Permissions reset."
+            )
 
         embed = discord.Embed(
             title="Heist Ended",
@@ -133,34 +144,22 @@ class HeistLock(commands.Cog):
         ctx: commands.Context,
         roles: Sequence[discord.Role],
         members_role: discord.Role,
-        before: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
-    ) -> Dict[discord.Role, discord.PermissionOverwrite]:
+    ) -> CHANNEL_OVERWRITES:
         assert isinstance(ctx.channel, discord.TextChannel)
 
-        permission_before = {
-            role: overwrites
-            for role, overwrites in ctx.channel.overwrites.items()
-            if isinstance(role, discord.Role)
-        }
+        before = {obj: overwrites for obj, overwrites in ctx.channel.overwrites.items()}
         permissions = {
-            role: copy.deepcopy(overwrites)
-            for role, overwrites in permission_before.items()
+            obj: copy.deepcopy(overwrites)
+            for obj, overwrites in ctx.channel.overwrites.items()
         }
 
-        if before:
-            overwrites = permissions.get(members_role) or discord.PermissionOverwrite()
-            overwrites.view_channel = (
-                before[members_role].view_channel if members_role in before else None
-            )
-            permissions[members_role] = overwrites
+        overwrites = permissions.get(members_role) or discord.PermissionOverwrite()
+        overwrites.view_channel = False
+        permissions[members_role] = overwrites
 
         for role in roles:
             overwrites = permissions.get(role) or discord.PermissionOverwrite()
-            overwrites.view_channel = (
-                (before[role].view_channel if role in before else None)
-                if before
-                else True
-            )
+            overwrites.view_channel = True
             permissions[role] = overwrites
 
         await ctx.channel.edit(
@@ -168,28 +167,4 @@ class HeistLock(commands.Cog):
             reason=f"Heist lock initiated by {ctx.author.display_name} ({ctx.author.id})",
         )
 
-        return permission_before
-
-    # async def update_channel(
-    #     self,
-    #     ctx: commands.Context,
-    #     roles: Sequence[discord.Role],
-    #     members_role: discord.Role,
-    #     before: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
-    # ) -> Dict[discord.Role, discord.PermissionOverwrite]:
-    #     assert isinstance(ctx.channel, discord.TextChannel)
-
-    #     ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
-
-    #     overwrites = ctx.channel.overwrites_for(members_role)
-    #     ret[members_role] = copy.deepcopy(overwrites)
-    #     overwrites.view_channel = before[members_role].view_channel if before else False
-    #     await ctx.channel.set_permissions(members_role, overwrite=overwrites)
-
-    #     for role in roles:
-    #         overwrites = ctx.channel.overwrites_for(role)
-    #         ret[role] = copy.deepcopy(overwrites)
-    #         overwrites.view_channel = before[role].view_channel if before else True
-    #         await ctx.channel.set_permissions(role, overwrite=overwrites)
-
-    #     return ret
+        return before
