@@ -5,7 +5,7 @@ from typing import Dict, Optional, Sequence, Tuple
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold
+from redbot.core.utils.chat_formatting import bold, inline
 
 DANK_MEMER_ID = 270904126974590976
 
@@ -15,14 +15,12 @@ class HeistLockFlags(commands.FlagConverter, prefix="--", delimiter=" "):
         description="Roles for which command will unviewlock the channel."
     )
     members_role: Optional[discord.Role] = commands.flag(
-        description="Role for which command will lock the channel, defaults to '@everyone'.",
+        description="Role for which command will viewlock the channel, defaults to '@everyone'.",
         default=None,
-        aliases=["members-role"],
     )
     viewlock_before_start: bool = commands.flag(
         description="Whether to viewlock the channel before heist start, defaults to 'False'.",
         default=False,
-        aliases=["viewlock-before-start"],
     )
 
 
@@ -35,7 +33,13 @@ class HeistLock(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.hybrid_command(aliases=["hstart", "heiststart", "hlock"])
     async def heistlock(self, ctx: commands.Context, *, flags: HeistLockFlags):
-        """This command will unviewlock the channel for the given roles on starting heist."""
+        f"""This command will unviewlock the channel for the given roles on starting heist.
+        
+        {bold('Flags:')}
+        {inline('--roles')}: Roles for which command will unviewlock the channel.
+        {inline('--members_role')}: Role for which command will viewlock the channel, defaults to '@everyone'.
+        {inline('--viewlock_before_start')}: Whether to viewlock the channel before heist start, defaults to 'False'.
+        """
 
         if not isinstance(ctx.channel, discord.TextChannel):
             return await ctx.send("This command can only be used in text channels.")
