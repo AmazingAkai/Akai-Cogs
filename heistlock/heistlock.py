@@ -1,11 +1,11 @@
 import asyncio
 import copy
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Optional, Sequence
 
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold, inline
+from redbot.core.utils.chat_formatting import bold
 
 DANK_MEMER_ID = 270904126974590976
 
@@ -47,12 +47,12 @@ class HeistLock(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.hybrid_command(aliases=["hstart", "heiststart", "hlock"])
     async def heistlock(self, ctx: commands.Context, *, flags: HeistLockFlags):
-        f"""This command will unviewlock the channel for the given roles on starting heist.
-        
-        {bold('Flags:')}
-        {inline('--roles')}: Roles for which command will unviewlock the channel.
-        {inline('--members_role')}: Role for which command will viewlock the channel, defaults to '@everyone'.
-        {inline('--viewlock_before_start')}: Whether to viewlock the channel before heist start, defaults to 'False'.
+        """This command will unviewlock the channel for the given roles on starting heist.
+
+        **Flags:**
+        `--roles`: Roles for which command will unviewlock the channel.
+        `--members_role`: Role for which command will viewlock the channel, defaults to '@everyone'.
+        `--viewlock_before_start`: Whether to viewlock the channel before heist start, defaults to 'False'.
         """
 
         if not isinstance(ctx.channel, discord.TextChannel):
