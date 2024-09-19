@@ -80,17 +80,6 @@ class ViewMentionsView(discord.ui.View):
         self.view_mentions.disabled = True
         await self.message.edit(view=self)
 
-    async def on_error(
-        self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
-    ) -> None:
-        message = f"An error occured while executing this interaction: {error}"
-        if interaction.response.is_done():
-            await interaction.followup.send(message)
-        else:
-            await interaction.response.send_message(message)
-
-        await super().on_error(interaction, error, item)
-
 
 class AwayFromKeyboard(commands.Cog):
     """Make the bot send a message whenever you are away from the keyboard."""
