@@ -86,8 +86,12 @@ class HeistLock(commands.Cog):
             return (
                 bool(message.embeds)
                 and bool(message.embeds[0].description)
-                and message.embeds[0].description.startswith(
-                    "Amazing job everybody, we racked up a total of"
+                and (
+                    message.embeds[0].description.startswith(
+                        "Amazing job everybody, we racked up a total of"
+                    )
+                    or message.embeds[0].description
+                    == "Server is not popular enough and didn't get enough people to rob its bank."
                 )
                 and message.author.id == DANK_MEMER_ID
                 and message.channel.id == ctx.channel.id
@@ -133,17 +137,45 @@ class HeistLock(commands.Cog):
     ) -> Dict[discord.Role, discord.PermissionOverwrite]:
         assert isinstance(ctx.channel, discord.TextChannel)
 
-        ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
+        ret = {}
+        permissions = {}
 
-        overwrites = ctx.channel.overwrites_for(members_role)
-        ret[members_role] = copy.deepcopy(overwrites)
-        overwrites.view_channel = before[members_role].view_channel if before else False
-        await ctx.channel.set_permissions(members_role, overwrite=overwrites)
+        if before:
+            overwrites = ctx.channel.overwrites_for(members_role)
+            ret[members_role] = copy.deepcopy(overwrites)
+            overwrites.view_channel = before[members_role].view_channel
+            permissions[members_role] = overwrites
 
         for role in roles:
             overwrites = ctx.channel.overwrites_for(role)
             ret[role] = copy.deepcopy(overwrites)
             overwrites.view_channel = before[role].view_channel if before else True
-            await ctx.channel.set_permissions(role, overwrite=overwrites)
+            permissions[role] = overwrites
+
+        await ctx.channel.set_permissions(**permissions)
 
         return ret
+
+    # async def update_channel(
+    #     self,
+    #     ctx: commands.Context,
+    #     roles: Sequence[discord.Role],
+    #     members_role: discord.Role,
+    #     before: Optional[Dict[discord.Role, discord.PermissionOverwrite]] = None,
+    # ) -> Dict[discord.Role, discord.PermissionOverwrite]:
+    #     assert isinstance(ctx.channel, discord.TextChannel)
+
+    #     ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
+
+    #     overwrites = ctx.channel.overwrites_for(members_role)
+    #     ret[members_role] = copy.deepcopy(overwrites)
+    #     overwrites.view_channel = before[members_role].view_channel if before else False
+    #     await ctx.channel.set_permissions(members_role, overwrite=overwrites)
+
+    #     for role in roles:
+    #         overwrites = ctx.channel.overwrites_for(role)
+    #         ret[role] = copy.deepcopy(overwrites)
+    #         overwrites.view_channel = before[role].view_channel if before else True
+    #         await ctx.channel.set_permissions(role, overwrite=overwrites)
+
+    #     return ret
