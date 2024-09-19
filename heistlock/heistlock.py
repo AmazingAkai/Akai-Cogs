@@ -163,7 +163,10 @@ class HeistLock(commands.Cog):
             )
             permissions[role] = overwrites
 
-        await ctx.channel.edit(overwrites=permissions)
+        await ctx.channel.edit(
+            overwrites=permissions,
+            reason=f"Heist lock initiated by {ctx.author.display_name} ({ctx.author.id})",
+        )
 
         return permission_before
 
