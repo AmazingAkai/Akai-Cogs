@@ -1,6 +1,6 @@
 import asyncio
 import copy
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Tuple
 
 import discord
 from redbot.core import commands
@@ -11,10 +11,10 @@ DANK_MEMER_ID = 270904126974590976
 
 
 class HeistLockFlags(commands.FlagConverter, prefix="--", delimiter=" "):
-    roles: tuple[discord.Role, ...] = commands.flag(
+    roles: Tuple[discord.Role, ...] = commands.flag(
         description="Roles for which command will unviewlock the channel."
     )
-    members_role: discord.Role | None = commands.flag(
+    members_role: Optional[discord.Role] = commands.flag(
         description="Role for which command will lock the channel, defaults to '@everyone'.",
         default=None,
         aliases=["members-role"],
