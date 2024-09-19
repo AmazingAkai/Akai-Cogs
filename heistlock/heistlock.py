@@ -137,24 +137,24 @@ class HeistLock(commands.Cog):
     ) -> Dict[discord.Role, discord.PermissionOverwrite]:
         assert isinstance(ctx.channel, discord.TextChannel)
 
-        ret: Dict[discord.Role, discord.PermissionOverwrite] = {}
-        permissions: Dict[discord.Role, discord.PermissionOverwrite] = {}
+        permission_before = {
+            role: overwrites
+            for role, overwrites in ctx.channel.overwrites.items()
+            if isinstance(role, discord.Role)
+        }
+        permissions = copy.deepcopy(permission_before)
 
         if before:
-            overwrites = ctx.channel.overwrites_for(members_role)
-            ret[members_role] = copy.deepcopy(overwrites)
+            overwrites = permissions.get(members_role) or discord.PermissionOverwrite()
             overwrites.view_channel = before[members_role].view_channel
-            permissions[members_role] = overwrites
 
         for role in roles:
-            overwrites = ctx.channel.overwrites_for(role)
-            ret[role] = copy.deepcopy(overwrites)
+            overwrites = permissions.get(role) or discord.PermissionOverwrite()
             overwrites.view_channel = before[role].view_channel if before else True
-            permissions[role] = overwrites
 
         await ctx.channel.edit(overwrites=permissions)
 
-        return ret
+        return permission_before
 
     # async def update_channel(
     #     self,
