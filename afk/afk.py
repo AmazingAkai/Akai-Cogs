@@ -47,10 +47,7 @@ class InteractionSimpleMenu(SimpleMenu):
         user: Optional[discord.abc.User] = None,
         ephemeral: bool = False,
     ):
-        self._fallback_author_to_ctx = True
-        if user is not None:
-            self.author = user
-        self.ctx = await commands.Context.from_interaction(interaction)
+        self.author = user or interaction.user
         kwargs = await self.get_page(self.current_page)
         self.message = await interaction.response.send_message(
             **kwargs,  # type: ignore
