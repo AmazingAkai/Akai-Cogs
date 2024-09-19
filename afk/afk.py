@@ -120,10 +120,11 @@ class AwayFromKeyboard(commands.Cog):
     async def remove_afk(
         self, channel: MessageableChannel, member: discord.Member
     ) -> None:
+        mentions = await self.config.member(member).mentions()
+
         await self.config.member(member).clear()
         await self.remove_afk_from_nickname(member)
 
-        mentions = await self.config.member(member).mentions()
         embeds = []
         description = f"While you were AFK, you got **{len(mentions)}** ping(s):"
         for i, mentions in enumerate(discord.utils.as_chunks(mentions, 15)):
@@ -267,7 +268,7 @@ class AwayFromKeyboard(commands.Cog):
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
         description = ""
         for i, channel_id in enumerate(channel_ids):
-            description += f"{i+1}. <#{channel_id}>."
+            description += f"{i+1}. <#{channel_id}>.\n"
 
         embed = discord.Embed(
             title="Blacklisted Channels", description=description, color=0x2B2D31
