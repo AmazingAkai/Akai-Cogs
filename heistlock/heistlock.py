@@ -10,9 +10,23 @@ from redbot.core.utils.chat_formatting import bold, inline
 DANK_MEMER_ID = 270904126974590976
 
 
+class RoleListConverter(commands.Converter):
+    async def convert(
+        self, ctx: commands.Context, argument: str
+    ) -> Sequence[discord.Role]:
+        roles: Sequence[discord.Role] = []
+
+        for role_str in argument.split():
+            role = await commands.RoleConverter().convert(ctx, role_str.strip())
+            roles.append(role)
+
+        return roles
+
+
 class HeistLockFlags(commands.FlagConverter, prefix="--", delimiter=" "):
-    roles: Tuple[discord.Role, ...] = commands.flag(
-        description="Roles for which command will unviewlock the channel."
+    roles: Sequence[discord.Role] = commands.flag(
+        description="Roles for which command will unviewlock the channel.",
+        converter=RoleListConverter,
     )
     members_role: Optional[discord.Role] = commands.flag(
         description="Role for which command will viewlock the channel, defaults to '@everyone'.",
