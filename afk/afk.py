@@ -22,22 +22,48 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import time
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 import discord
 from redbot.core import Config, commands
+from redbot.core.utils.views import SimpleMenu
 
-MessageableChannel = Union[
-    discord.TextChannel,
-    discord.VoiceChannel,
-    discord.StageChannel,
-    discord.Thread,
-    discord.DMChannel,
-    discord.PartialMessageable,
-    discord.GroupChannel,
-]
+if TYPE_CHECKING:
+    from typing import Sequence
+
+    from discord.abc import MessageableChannel
+
+
+class ViewMentionsView(discord.ui.View):
+    message: discord.Message
+
+    def __init__(self, embeds: Sequence[discord.Embed], author: discord.Member):
+        super().__init__(timeout=180)
+        self.embeds = embeds
+        self.author = author
+
+    @discord.ui.button(label="View Mentions", style=discord.ButtonStyle.green)
+    async def view_mentions(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        menus = SimpleMenu(pages=self.embeds, timeout=180)  # type: ignore
+        ctx = await commands.Context.from_interaction(interaction)
+        await menus.start(ctx, ephemeral=True)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user != self.author:
+            await interaction.response.defer()
+            return False
+        return True
+
+    async def on_timeout(self) -> None:
+        self.view_mentions.disabled = True
+        await self.message.edit(view=self)
 
 
 class AwayFromKeyboard(commands.Cog):
@@ -94,13 +120,13 @@ class AwayFromKeyboard(commands.Cog):
     async def remove_afk(
         self, channel: MessageableChannel, member: discord.Member
     ) -> None:
-        mentions = await self.config.member(member).mentions()
-        chunks = discord.utils.as_chunks(mentions, 15)
         await self.config.member(member).clear()
         await self.remove_afk_from_nickname(member)
+
+        mentions = await self.config.member(member).mentions()
         embeds = []
         description = f"While you were AFK, you got **{len(mentions)}** ping(s):"
-        for i, mentions in enumerate(chunks):
+        for i, mentions in enumerate(discord.utils.as_chunks(mentions, 15)):
             for mention in mentions:
                 description += f"\n・{mention['author']}・<t:{mention['timestamp']}:R>・[Jump]({mention['url']})"
             embed = discord.Embed(
@@ -112,20 +138,14 @@ class AwayFromKeyboard(commands.Cog):
             description = ""  # clearing description before next chunk
             embeds.append(embed)
 
-        try:
-            if not embeds:
-                embeds = [
-                    discord.Embed(
-                        title=f"Welcome back, {member.name}",
-                        description=f"While you were AFK, you got **{len(mentions)}** pings.",
-                        color=0x2B2D31,
-                    )
-                ]
-            await channel.send(
-                embeds=embeds[:10]  # we cannot send more than 10 embeds.
+        with contextlib.suppress(discord.HTTPException):
+            embed = discord.Embed(
+                title=f"Welcome back, {member.name}",
+                description=f"While you were AFK, you got **{len(mentions)}** pings.",
+                color=0x2B2D31,
             )
-        except discord.Forbidden:
-            pass
+            view = ViewMentionsView(embeds, member) if embeds else discord.ui.View()
+            view.message = await channel.send(embed=embed, view=view)  # type: ignore
 
     @commands.Cog.listener("on_message_without_command")
     async def afk_listener(self, message: discord.Message) -> None:
@@ -145,7 +165,7 @@ class AwayFromKeyboard(commands.Cog):
 
         member_data = await self.config.member(message.author).all()
         if member_data["afk"]:
-            if not message.author.id in self.grace_period:
+            if message.author.id not in self.grace_period:
                 await self.remove_afk(message.channel, message.author)
 
         for member in message.mentions:
@@ -160,7 +180,7 @@ class AwayFromKeyboard(commands.Cog):
                     f"{member.name} is AFK: {member_data['message'] or 'No Message'} (since <t:{member_data['afk_since']}:R>)",
                     delete_after=5,
                 )
-                if message.channel.permissions_for(member).read_messages == True:
+                if message.channel.permissions_for(member).read_messages is True:
                     config = self.config.member(member)
 
                     async with config.mentions() as mentions:
@@ -209,7 +229,7 @@ class AwayFromKeyboard(commands.Cog):
     async def afkset(self, ctx: commands.Context) -> None:
         """Set and manage afk command."""
 
-    @afkset.group(name="blacklist", aliases=["bl"])
+    @afkset.group(name="blacklist", aliases=["bl"])  # type: ignore
     async def afkset_blacklist(self, ctx: commands.Context) -> None:
         """Set the blacklist channel to ignore AFK."""
 
@@ -233,7 +253,7 @@ class AwayFromKeyboard(commands.Cog):
     ) -> None:
         """Remove a blacklist channel from ignoring AFK."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
-        if not channel.id in channel_ids:
+        if channel.id not in channel_ids:
             await ctx.message.add_reaction("❎")
         else:
             config = self.config.guild(ctx.guild)
