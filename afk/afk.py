@@ -39,6 +39,25 @@ if TYPE_CHECKING:
     from discord.abc import MessageableChannel
 
 
+class InteractionSimpleMenu(SimpleMenu):
+    async def start(
+        self,
+        interaction: discord.Interaction,
+        *,
+        user: Optional[discord.abc.User] = None,
+        ephemeral: bool = False,
+    ):
+        self._fallback_author_to_ctx = True
+        if user is not None:
+            self.author = user
+        self.ctx = await commands.Context.from_interaction(interaction)
+        kwargs = await self.get_page(self.current_page)
+        self.message = await interaction.response.send_message(
+            **kwargs,  # type: ignore
+            ephemeral=ephemeral,
+        )
+
+
 class ViewMentionsView(discord.ui.View):
     message: discord.Message
 
@@ -51,9 +70,8 @@ class ViewMentionsView(discord.ui.View):
     async def view_mentions(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        menus = SimpleMenu(pages=self.embeds, timeout=180)  # type: ignore
-        ctx = await commands.Context.from_interaction(interaction)
-        await menus.start(ctx, ephemeral=True)
+        menus = InteractionSimpleMenu(pages=self.embeds, timeout=180)  # type: ignore
+        await menus.start(interaction, ephemeral=True)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user != self.author:
@@ -64,17 +82,6 @@ class ViewMentionsView(discord.ui.View):
     async def on_timeout(self) -> None:
         self.view_mentions.disabled = True
         await self.message.edit(view=self)
-
-    async def on_error(
-        self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
-    ) -> None:
-        message = f"An error occured while executing this interaction: {error}"
-        if interaction.response.is_done():
-            await interaction.followup.send(message)
-        else:
-            await interaction.response.send_message(message)
-
-        await super().on_error(interaction, error, item)
 
 
 class AwayFromKeyboard(commands.Cog):
