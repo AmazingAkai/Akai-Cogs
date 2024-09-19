@@ -142,7 +142,10 @@ class HeistLock(commands.Cog):
             for role, overwrites in ctx.channel.overwrites.items()
             if isinstance(role, discord.Role)
         }
-        permissions = copy.deepcopy(permission_before)
+        permissions = {
+            role: copy.deepcopy(overwrites)
+            for role, overwrites in permission_before.items()
+        }
 
         if before:
             overwrites = permissions.get(members_role) or discord.PermissionOverwrite()
