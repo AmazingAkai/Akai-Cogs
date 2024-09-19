@@ -152,6 +152,7 @@ class HeistLock(commands.Cog):
             overwrites.view_channel = (
                 before[members_role].view_channel if members_role in before else None
             )
+            permissions[members_role] = overwrites
 
         for role in roles:
             overwrites = permissions.get(role) or discord.PermissionOverwrite()
@@ -160,6 +161,7 @@ class HeistLock(commands.Cog):
                 if before
                 else True
             )
+            permissions[role] = overwrites
 
         await ctx.channel.edit(overwrites=permissions)
 
