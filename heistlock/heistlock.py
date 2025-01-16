@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Optional, Sequence
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold
 
 if TYPE_CHECKING:
     from typing import Dict, Union
@@ -66,31 +65,6 @@ class HeistLock(commands.Cog):
         if len(flags.roles) > 5:
             return await ctx.send("Please mention no more than 5 roles.")
 
-        assert ctx.guild is not None
-
-        members_role = flags.members_role or ctx.guild.default_role
-        color = await ctx.bot.get_embed_color(ctx)
-
-        embed = discord.Embed(
-            title="Listening for Heist Start",
-            description="Please run the heist command in this channel. "
-            f"The channel will be unviewlocked for {', '.join(role.mention for role in flags.roles)}.",
-            color=color,
-        )
-
-        await ctx.send(embed=embed)
-
-        def is_heiststart_message(message: discord.Message) -> bool:
-            return (
-                bool(message.embeds)
-                and bool(message.embeds[0].description)
-                and message.embeds[0].description.startswith(
-                    f"They're trying to break into {bold('server')}'s bank!"
-                )
-                and message.author.id == DANK_MEMER_ID
-                and message.channel.id == ctx.channel.id
-            )
-
         def is_heistend_message(message: discord.Message) -> bool:
             return (
                 bool(message.embeds)
@@ -106,16 +80,16 @@ class HeistLock(commands.Cog):
                 and message.channel.id == ctx.channel.id
             )
 
-        try:
-            await self.bot.wait_for("message", check=is_heiststart_message, timeout=60)
-        except asyncio.TimeoutError:
-            return await ctx.send("Timed out waiting for heist start message.")
+        assert ctx.guild is not None
+
+        members_role = flags.members_role or ctx.guild.default_role
+        color = await ctx.bot.get_embed_color(ctx)
 
         before = await self.update_channel(ctx, flags.roles, members_role)
 
         embed = discord.Embed(
-            title="Heist Started",
-            description="The heist has started. Channel has been unviewlocked "
+            title="Heist Lock",
+            description=f"Channel has been viewlocked for {members_role.mention} and unviewlocked "
             f"for {', '.join(role.mention for role in flags.roles)}.",
             color=color,
         )
@@ -123,7 +97,7 @@ class HeistLock(commands.Cog):
         await ctx.send(embed=embed)
 
         try:
-            await self.bot.wait_for("message", check=is_heistend_message, timeout=300)
+            await self.bot.wait_for("message", check=is_heistend_message, timeout=360)
         except asyncio.TimeoutError:
             return await ctx.send("Timed out waiting for heist end message.")
         finally:
