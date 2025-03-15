@@ -43,7 +43,7 @@ from .utils import Game, Stream
 TWITCH_GAMES_ENDPOINT = TWITCH_BASE_URL + "/helix/games"
 
 
-log = logging.getLogger("akaicogs.gamestreams")
+log = logging.getLogger("red.akaicogs.gamestreams")
 
 
 class GameStreams(commands.Cog):
@@ -151,7 +151,10 @@ class GameStreams(commands.Cog):
                 if channel is not None:
                     for embeds_chunk in discord.utils.as_chunks(embeds, max_size=10):
                         try:
-                            await channel.send(content="Some new streams have started: ", embeds=embeds_chunk)  # type: ignore # Will always be discord.TextChannel
+                            await channel.send(
+                                content="Some new streams have started: ",
+                                embeds=embeds_chunk,
+                            )  # type: ignore # Will always be discord.TextChannel
                         # except discord.HTTPException:
                         #     pass
                         except Exception as error:
@@ -359,7 +362,7 @@ class GameStreams(commands.Cog):
                 guild = ctx.bot.get_guild(game_alert["guild_id"])
                 channel = guild.get_channel(game_alert["channel_id"]) if guild else None
 
-                description += f"{j+1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}\n"
+                description += f"{j + 1}. {channel.mention if channel else 'Channel Not Found'} - {guild.name if guild else 'Guild Not Found'}\n"
 
             embed = discord.Embed(
                 title=game_name.title(),

@@ -256,12 +256,12 @@ class AwayFromKeyboard(commands.Cog):
         """Add a blacklist channel to ignore AFK."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
         if channel.id in channel_ids:
-            await ctx.message.add_reaction("❎")
+            await ctx.reply("Channel is already blacklisted.", ephemeral=True)
         else:
             config = self.config.guild(ctx.guild)
             async with config.blacklisted_channels() as blacklisted_channels:
                 blacklisted_channels.append(channel.id)
-            await ctx.message.add_reaction("✅")
+            await ctx.reply("Channel has been blacklisted.", ephemeral=True)
 
     @afkset_blacklist.command(name="remove", aliases=["r", "-"])
     async def afkset_blacklist_remove(
@@ -270,12 +270,12 @@ class AwayFromKeyboard(commands.Cog):
         """Remove a blacklist channel from ignoring AFK."""
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
         if channel.id not in channel_ids:
-            await ctx.message.add_reaction("❎")
+            await ctx.reply("Channel is not blacklisted.", ephemeral=True)
         else:
             config = self.config.guild(ctx.guild)
             async with config.blacklisted_channels() as blacklisted_channels:
                 blacklisted_channels.remove(channel.id)
-            await ctx.message.add_reaction("✅")
+            await ctx.reply("Channel has been removed from blacklist.", ephemeral=True)
 
     @afkset_blacklist.command(name="list")
     async def afkset_blacklist_list(self, ctx: commands.GuildContext) -> None:
@@ -283,7 +283,7 @@ class AwayFromKeyboard(commands.Cog):
         channel_ids = await self.config.guild(ctx.guild).blacklisted_channels()
         description = ""
         for i, channel_id in enumerate(channel_ids):
-            description += f"{i+1}. <#{channel_id}>.\n"
+            description += f"{i + 1}. <#{channel_id}>.\n"
 
         embed = discord.Embed(
             title="Blacklisted Channels", description=description, color=0x2B2D31
